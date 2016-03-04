@@ -73,6 +73,7 @@ int uthread_block(int tid)
 */
 int uthread_resume(int tid)
 {
+    //TODO manager method
 
 }
 
@@ -87,7 +88,7 @@ int uthread_resume(int tid)
 */
 int uthread_sleep(int num_quantums)
 {
-
+    //TODO manager method + thread inner state change
 }
 
 
@@ -100,6 +101,7 @@ int uthread_sleep(int num_quantums)
 */
 int uthread_get_time_until_wakeup(int tid)
 {
+    //TODO return the time remains for thread to sleep
 
 }
 
@@ -110,6 +112,7 @@ int uthread_get_time_until_wakeup(int tid)
 */
 int uthread_get_tid()
 {
+    //TODO return private field
 
 }
 
@@ -125,6 +128,7 @@ int uthread_get_tid()
 int uthread_get_total_quantums()
 {
 
+    //TODO return the static global field
 }
 
 
@@ -139,6 +143,7 @@ int uthread_get_total_quantums()
 */
 int uthread_get_quantums(int tid)
 {
+    // TODO return the private field for reqested thread
 
 }
 
