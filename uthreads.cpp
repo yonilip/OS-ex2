@@ -1,6 +1,65 @@
+/*
+ * Ok here is the rough design of the shit we are doing:
+ *
+ * Class Thread:
+ * 		const unsigned int threadId
+ * 		state (Part of the enum that holds states: READY, SLEEPING, BLOCKED, RUNNING)
+ * 		stackPointer (of type address_t)
+ * 		sigMaskSet
+ * 		unsigned int quantumCounter; (increments by 1 each time thread runs)
+ * 		sleepTimer (????)
+ *
+ *
+ * 		Optional:
+ * 		priority
+ *
+ *
+ * Manager/Scheduler (main thread?):
+ *
+ * 		curRunningThread (int or ptr)
+ * 		quantum_usecs (comes from the init func and defines how much time each thread runs)
+ * 		unsigned int threadsCounter (counts the amount of spawned threads that havent been terminated)
+ * 		int sumQuantumCounter ( counter of all the threads that have been in running state, updated at preemption/start of thread run)
+ *
+ * 		DAST:
+ *
+ * 		readyQueue (updates at preemption
+ * 		tidMinHeap (for extracting the minimal available tid, should be initialized in the init func. insert tid node when terminating a thread)
+ * 		SleepingVector (at preemption check if sleeping thread should move to readyQueue)
+ * 		BlockedVector
+ *
+ * 		Optional:
+ * 		existingThreads
+ *
+ *
+ *
+ *
+ * Stuff we arent sure about:
+ * 		Signals and their managers (sigaction and shit)
+ * 		time measuring
+ * 		exceptions and handling them (does each thread handle its own exception or do they move to the manager?)
+ *
+ *
+ *
+ * 		Regarding preemption in the RR-Alg:
+ * 			blocking suggestion: when deciding to block a thread, we save the
+ * 				state of the current thread using sigSetJump and go to the other
+ * 				thread and evaluate what situation it is supposed to handle (i.e run? block myself? wake up?)
+ * 				then after blocking self sigLongJump to the thread that blocked this thread
+ * 				and continue normally. if Blocking self, go to preemption while updating needed
+ * 				DAST's.
+ */
+
+
+
+
+
+
 
 #include "uthreads.h"
 #include <iostream>
+
+
 using namespace std;
 
 /*
