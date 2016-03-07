@@ -53,10 +53,10 @@ public:
          */
     }
 
-    void getStartedSleepTime()
-    {
-        return startedSleepTime;
-    }
+//    void getStartedSleepTime()
+//    {
+//        return startedSleepTime;
+//    }
 
     void incrementQuantumCounter()
     {
