@@ -49,18 +49,40 @@
  * 				and continue normally. if Blocking self, go to preemption while updating needed
  * 				DAST's.
  */
-
-
-
+#define SECOND 1000000
+#define STACK_SIZE 4096
+#define MAX_THREAD_NUM 100 //TODO check the number
 
 
 
 
 #include "uthreads.h"
 #include <iostream>
-
+#include <bits/stl_queue.h>
+#include "Thread.h"
+#include <algorithm>
 
 using namespace std;
+
+
+
+
+queue<Thread> readyQueue;
+vector<unsigned int> tidVector(MAX_THREAD_NUM);
+std::iota(tidVector.begin(), tidVector.end(), MAX_THREAD_NUM);
+make_heap<unsigned int> tidMinHeap;
+
+
+
+
+
+
+
+
+
+
+
+
 
 /*
  * Description: This function initializes the thread library.
@@ -187,7 +209,7 @@ int uthread_get_tid()
 int uthread_get_total_quantums()
 {
 
-    //TODO return the static global field
+
 }
 
 
