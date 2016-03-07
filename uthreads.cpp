@@ -16,7 +16,7 @@
  *
  * Manager/Scheduler (main thread?):
  *
- * 		curRunningThread (int or ptr)
+ * 		curRunningThread (ptr)
  * 		quantum_usecs (comes from the init func and defines how much time each thread runs)
  * 		unsigned int threadsCounter (counts the amount of spawned threads that havent been terminated)
  * 		int sumQuantumCounter ( counter of all the threads that have been in running state, updated at preemption/start of thread run)
@@ -71,6 +71,7 @@ queue<Thread> readyQueue;
 vector<unsigned int> tidVector(MAX_THREAD_NUM);
 std::iota(tidVector.begin(), tidVector.end(), MAX_THREAD_NUM);
 make_heap<unsigned int> tidMinHeap;
+Thread *runningThread;
 
 
 
@@ -94,6 +95,7 @@ make_heap<unsigned int> tidMinHeap;
 */
 int uthread_init(int quantum_usecs)
 {
+    // init runningThread to 0 (global thread)
 
 }
 
@@ -208,6 +210,7 @@ int uthread_get_tid()
 */
 int uthread_get_total_quantums()
 {
+
 
 
 }
