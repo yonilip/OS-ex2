@@ -50,34 +50,33 @@
  * 				DAST's.
  */
 #define SECOND 1000000
-#define STACK_SIZE 4096
 #define MAX_THREAD_NUM 100 //TODO check the number
 
 
+#define FAILED -1
 
+#define SUCCESS 0
 
+#define MAIN_THREAD 0
+
+#include <vector>
 #include "uthreads.h"
 #include <iostream>
-#include <bits/stl_queue.h>
 #include "Thread.h"
 #include <algorithm>
+#include <functional>
+#include <queue>
 
 using namespace std;
 
 
 
+deque<Thread*> readyQueue;
+priority_queue<unsigned int ,vector<unsigned int>, greater<unsigned int>> tidHeap;
 
-queue<Thread> readyQueue;
-vector<unsigned int> tidVector(MAX_THREAD_NUM);
-std::iota(tidVector.begin(), tidVector.end(), MAX_THREAD_NUM);
-make_heap<unsigned int> tidMinHeap;
+vector<Thread*> sleepingThreads;
+vector<Thread*> blockedThreads;
 Thread *runningThread;
-
-
-
-
-
-
 
 
 
@@ -95,6 +94,18 @@ Thread *runningThread;
 */
 int uthread_init(int quantum_usecs)
 {
+
+    for (int i = 1; i <= 100; ++i) {
+        tidHeap.push((const unsigned int &) i);
+    }
+
+//    while(!tidHeap.empty())
+//    {
+//        cout << tidHeap.top() << endl;
+//        tidHeap.pop();
+//    }
+
+
     // init runningThread to 0 (global thread)
 
 }
@@ -111,9 +122,82 @@ int uthread_init(int quantum_usecs)
 */
 int uthread_spawn(void (*f)(void))
 {
+    if (readyQueue.size() < MAX_THREAD_NUM)
+    {
+        unsigned int newTid = tidHeap.top();
+        tidHeap.pop();
+        Thread* newThread = new Thread(newTid, f);
+
+        readyQueue.push_back(newThread);
+
+        return newTid;
+    }
+    else
+    {
+        return FAILED;
+    }
 
 }
 
+
+Thread* getThreadFromDAST(int tid)
+{
+    Thread* threadToFind;
+
+    if (runningThread->getThreadId() == tid) return runningThread; //TODO what happens if the running thread terminates itself? what happens next?
+
+    if (!readyQueue.empty()){
+        for(auto it = readyQueue.begin() ; it != readyQueue.end() ; it++)
+        {
+            if ((*it)->getThreadId() == tid)
+            {
+                threadToFind = *it;
+                readyQueue.erase(it);
+                return threadToFind;
+            }
+        }
+    }
+
+    if (!sleepingThreads.empty()){
+        for(auto it = sleepingThreads.begin() ; it != sleepingThreads.end() ; it++)
+        {
+            if ((*it)->getThreadId() == tid)
+            {
+                threadToFind = *it;
+                sleepingThreads.erase(it);
+                return threadToFind;
+            }
+        }
+    }
+
+    if (!blockedThreads.empty()){
+        for(auto it = blockedThreads.begin() ; it != blockedThreads.end() ; it++)
+        {
+            if ((*it)->getThreadId() == tid)
+            {
+                threadToFind = *it;
+                blockedThreads.erase(it);
+                return threadToFind;
+            }
+        }
+    }
+
+    // TODO think about impl of this function. do we really need to search all DAST? so we need to pop the thread any time?
+    // TODO kefel code
+    return nullptr;
+}
+
+void freeAll()
+{
+    Thread* curThread;
+    for (int i = 0; i <= MAX_THREAD_NUM ; ++i) {
+        curThread = getThreadFromDAST(i);
+        if (curThread != nullptr)
+        {
+            delete(curThread);
+        }
+    }
+}
 
 /*
  * Description: This function terminates the thread with ID tid and deletes
@@ -128,7 +212,16 @@ int uthread_spawn(void (*f)(void))
 */
 int uthread_terminate(int tid)
 {
-
+    if (tid == MAIN_THREAD)
+    {
+        freeAll();
+        exit(SUCCESS);
+    }
+    //TODO what happens when terminating running thread?
+    Thread* threadToDel = getThreadFromDAST(tid); // removes thread from the container it came from
+    if (threadToDel == nullptr) return FAILED; //TODO should we throw err?
+    delete(threadToDel);
+    tidHeap.push((const unsigned int &) tid);
 }
 
 
@@ -143,7 +236,31 @@ int uthread_terminate(int tid)
 */
 int uthread_block(int tid)
 {
+    /*
+     * Only ready and running threads could be blocked!!
+     */
+    Thread* threadToBlock;
+    if(tid == 0)
+    {
+        return FAILED; // TODO err
+    }
+    threadToBlock = getThreadFromDAST(tid);
 
+    if(threadToBlock == runningThread)
+    {
+        // TODO make scheduling decision
+    }
+    if(threadToBlock->getState() == Sleeping)
+    {
+        sleepingThreads.push_back(threadToBlock);
+        return SUCCESS;
+    }
+    else if(threadToBlock->getState() != Blocked)
+    {
+        threadToBlock->setState(Blocked);
+    }
+    blockedThreads.push_back(threadToBlock);
+    return SUCCESS;
 }
 
 
