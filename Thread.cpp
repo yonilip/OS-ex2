@@ -2,8 +2,8 @@
 // Created by Danielle on 3/4/2016.
 //
 
-#include "Thread.h"
 
+#include "Thread.h"
 
 Thread::Thread(unsigned int threadId, void (*threadFunction)(void))
 {
@@ -11,14 +11,18 @@ Thread::Thread(unsigned int threadId, void (*threadFunction)(void))
     this->state = Ready;
     startedSleepTime = 0;
     quantumCounter = 0;
-    this->threadFunction = threadFunction; //TODO is this ref, deref or like this?
-    //TODO init sigMaskSet, stackPointer
-    try {
-        this->stackPointer = malloc(STACK_SIZE); //TODO is this the impl needed?
+    allocatedStack = new char[STACK_SIZE];
 
-    } catch (exception e) {
-        //TODO catch the bad_alloc thing
-    }
+    stackPointer = (address_t)allocatedStack + STACK_SIZE - sizeof(address_t);
+    programCounter = (address_t)threadFunction;
+    sigsetjmp(env, 1); //TODO what is this 1 savemask thing?
+    env->__jmpbuf[JB_SP] = translate_address(stackPointer);
+    env->__jmpbuf[JB_PC] = translate_address(programCounter);
+    sigemptyset(env->__saved_mask);
+
+    /**
+     * timer shit follows
+     */
 
 
 }
@@ -62,6 +66,10 @@ void Thread::resetSleepingTime()
     startedSleepTime = 0;
 }
 
+sigjmp_buf& getEnv()
+{
+    return env;
+}
 
 //TODO setSleepTime, state change's func,
 

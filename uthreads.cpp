@@ -49,6 +49,16 @@
  * 				and continue normally. if Blocking self, go to preemption while updating needed
  * 				DAST's.
  */
+
+
+
+
+
+
+
+
+
+
 #define SECOND 1000000
 #define MAX_THREAD_NUM 100 //TODO check the number
 
@@ -59,17 +69,20 @@
 
 #define MAIN_THREAD 0
 
-#include <vector>
 #include "uthreads.h"
-#include <iostream>
 #include "Thread.h"
+
 #include <algorithm>
 #include <functional>
 #include <queue>
+#include <setjmp.h>
+#include <vector>
+#include <stdio.h>
+#include <signal.h>
+#include <sys/time.h>
+#include <iostream>
 
 using namespace std;
-
-
 
 deque<Thread*> readyQueue;
 priority_queue<unsigned int ,vector<unsigned int>, greater<unsigned int>> tidHeap;
@@ -79,8 +92,11 @@ vector<Thread*> blockedThreads;
 Thread *runningThread;
 
 
-
-
+/**
+ * timer shit follows
+ */
+struct itimerval timer;
+struct sigaction sigAction;
 
 
 
@@ -94,10 +110,26 @@ Thread *runningThread;
 */
 int uthread_init(int quantum_usecs)
 {
+    if(quantum_usecs <= 0)
+    {
+        return FAILED;
+    }
+    sigAction.sa_handler = &time
+    timer.it_interval.tv_sec = 0;
+    timer.it_interval.tv_usec = quantum_usecs;
+
+    if(setitimer(ITIMER_VIRTUAL, &timer, NULL))
+    {
+        return FAILED;
+    }
+
 
     for (int i = 1; i <= 100; ++i) {
         tidHeap.push((const unsigned int &) i);
     }
+    //  TODO understand if the main thread will be created using spawn or not
+    //TODO init VTALARM
+
 
 //    while(!tidHeap.empty())
 //    {
@@ -180,7 +212,7 @@ Thread* getThreadFromDAST(int tid)
                 return threadToFind;
             }
         }
-    }
+    } 
 
     // TODO think about impl of this function. do we really need to search all DAST? so we need to pop the thread any time?
     // TODO kefel code
@@ -189,6 +221,7 @@ Thread* getThreadFromDAST(int tid)
 
 void freeAll()
 {
+
     Thread* curThread;
     for (int i = 0; i <= MAX_THREAD_NUM ; ++i) {
         curThread = getThreadFromDAST(i);
@@ -212,16 +245,21 @@ void freeAll()
 */
 int uthread_terminate(int tid)
 {
+    /*
+     * need to block signals! until we finish the temination.
+     *
+     */
     if (tid == MAIN_THREAD)
     {
         freeAll();
         exit(SUCCESS);
     }
-    //TODO what happens when terminating running thread?
+    //TODO what happens when terminating running thread? need to block signals!
     Thread* threadToDel = getThreadFromDAST(tid); // removes thread from the container it came from
     if (threadToDel == nullptr) return FAILED; //TODO should we throw err?
     delete(threadToDel);
     tidHeap.push((const unsigned int &) tid);
+    //unblock the signal
 }
 
 
@@ -345,6 +383,33 @@ int uthread_get_total_quantums()
 int uthread_get_quantums(int tid)
 {
     // TODO return the private field for reqested thread
+
+}
+
+
+
+int preempt()
+{
+    /**
+     * this does the context switch.
+     * add all the threads that finished their sleeping time to the end of READY
+     * threads list (dont forget to change their states).
+     * If the quantum is expired, moce the preempted thread to the end of the
+     * Ready threads list
+     * Move to the next thread in the readyQueue (change states, sigLongJump)
+     */
+}
+
+
+void signal_handler(int sig)
+{
+    /*
+     * Check with the current running thread if it is masking a signal,
+     * if so then ignore the signal, else context switch.
+     *
+     */
+
+    if(runningThread->getEnv()->__saved_mask)
 
 }
 
