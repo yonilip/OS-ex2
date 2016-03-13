@@ -99,6 +99,10 @@ struct itimerval timer;
 struct sigaction sigAction;
 
 
+void timerHandler(int sig)
+{
+
+}
 
 /*
  * Description: This function initializes the thread library.
@@ -114,7 +118,8 @@ int uthread_init(int quantum_usecs)
     {
         return FAILED;
     }
-    sigAction.sa_handler = &time
+
+    sigAction.sa_handler = &timerHandler;
     timer.it_interval.tv_sec = 0;
     timer.it_interval.tv_usec = quantum_usecs;
 
@@ -141,6 +146,10 @@ int uthread_init(int quantum_usecs)
     // init runningThread to 0 (global thread)
 
 }
+
+
+
+
 
 /*
  * Description: This function creates a new thread, whose entry point is the
