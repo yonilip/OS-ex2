@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <signal.h>
 #include <sys/time.h>
+#include <setjmp.h>
 
 #ifdef __x86_64__
 /* code for 64 bit Intel arch */
@@ -61,13 +62,12 @@ class Thread
 private:
 
     unsigned int threadId;
-    State state;
-    address_t stackPointer, programCounter;
+    State state; // TODO check if needed
     //TODO check if needed alloction for thread stack
     sigjmp_buf env;
     //void sigMaskSet; //TODO change type
     unsigned int quantumCounter; // inc every time this thread is in running state
-    void startedSleepTime; //TODO change type
+    int timeUntilWakeUp; //TODO change type
     char* allocatedStack;
 
 
@@ -88,7 +88,10 @@ public:
     void incrementQuantumCounter();
 
     void resetSleepingTime();
+
     sigjmp_buf& getEnv();
+
+    void setTimeTillWakeUp(int numQuantums);
 
 };
 

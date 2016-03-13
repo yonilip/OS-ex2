@@ -13,6 +13,7 @@ Thread::Thread(unsigned int threadId, void (*threadFunction)(void))
     quantumCounter = 0;
     allocatedStack = new char[STACK_SIZE];
 
+    address_t stackPointer, programCounter;
     stackPointer = (address_t)allocatedStack + STACK_SIZE - sizeof(address_t);
     programCounter = (address_t)threadFunction;
     sigsetjmp(env, 1); //TODO what is this 1 savemask thing?
@@ -74,3 +75,7 @@ sigjmp_buf& getEnv()
 //TODO setSleepTime, state change's func,
 
 // terminated
+void Thread::setTimeTillWakeUp(int numQuantums)
+{
+    this->timeUntilWakeUp = numQuantums;
+}

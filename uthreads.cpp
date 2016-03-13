@@ -51,22 +51,10 @@
  */
 
 
-
-
-
-
-
-
-
-
 #define SECOND 1000000
 #define MAX_THREAD_NUM 100 //TODO check the number
-
-
 #define FAILED -1
-
 #define SUCCESS 0
-
 #define MAIN_THREAD 0
 
 #include "uthreads.h"
@@ -98,6 +86,25 @@ Thread *runningThread;
 struct itimerval timer;
 struct sigaction sigAction;
 
+void roundRobinAlg()
+{
+    while(true)
+    {
+        // ?? sigsetjmp? ??
+        // block signals
+        // check sleeping and move to ready
+        for (auto it = sleepingThreads.begin(); it != sleepingThreads.end(); ++it) {
+            //if ((*it).)
+        }
+
+
+        //before trying to pull from ready, check if not empty
+
+        // sigwait()
+        // siglongjump to make sure time will start in a new quantum (happens in the signal catcher)
+    }
+}
+
 
 void timerHandler(int sig)
 {
@@ -120,35 +127,33 @@ int uthread_init(int quantum_usecs)
     }
 
     sigAction.sa_handler = &timerHandler;
+
+    // initial timer for the first interval
+    timer.it_value.tv_sec = 0;
+    timer.it_value.tv_usec = quantum_usecs;
+
+    // initial timer for rest of iterations
     timer.it_interval.tv_sec = 0;
     timer.it_interval.tv_usec = quantum_usecs;
 
-    if(setitimer(ITIMER_VIRTUAL, &timer, NULL))
-    {
-        return FAILED;
-    }
 
 
     for (int i = 1; i <= 100; ++i) {
         tidHeap.push((const unsigned int &) i);
     }
-    //  TODO understand if the main thread will be created using spawn or not
-    //TODO init VTALARM
 
+    if (sigaction(SIGVTALRM, &sigAction, NULL) < 0)
+    {
+        return FAILED;
+    }
 
-//    while(!tidHeap.empty())
-//    {
-//        cout << tidHeap.top() << endl;
-//        tidHeap.pop();
-//    }
-
-
+    if(setitimer(ITIMER_VIRTUAL, &timer, NULL))
+    {
+        return FAILED;
+    }
     // init runningThread to 0 (global thread)
 
 }
-
-
-
 
 
 /*
@@ -177,6 +182,7 @@ int uthread_spawn(void (*f)(void))
     {
         return FAILED;
     }
+
 
 }
 
@@ -271,6 +277,25 @@ int uthread_terminate(int tid)
     //unblock the signal
 }
 
+/**
+ * TODO DOC
+ */
+Thread *getThreadFromReadyQueue(int tid)
+{
+    Thread* threadToFind = nullptr;
+    if (!readyQueue.empty()){
+        for(auto it = readyQueue.begin() ; it != readyQueue.end() ; it++)
+        {
+            if ((*it)->getThreadId() == tid)
+            {
+                threadToFind = *it;
+                readyQueue.erase(it);
+                return threadToFind;
+            }
+        }
+    }
+    return threadToFind;
+}
 
 /*
  * Description: This function blocks the thread with ID tid. The thread may
@@ -286,25 +311,25 @@ int uthread_block(int tid)
     /*
      * Only ready and running threads could be blocked!!
      */
+    //TODO should we block signals?
     Thread* threadToBlock;
-    if(tid == 0)
+    if(tid <= 0)
     {
         return FAILED; // TODO err
     }
-    threadToBlock = getThreadFromDAST(tid);
-
-    if(threadToBlock == runningThread)
+    //threadToBlock = getThreadFromDAST(tid);
+    if(runningThread->getThreadId() == tid)
     {
+        blockedThreads.push_back(runningThread);
         // TODO make scheduling decision
-    }
-    if(threadToBlock->getState() == Sleeping)
-    {
-        sleepingThreads.push_back(threadToBlock);
         return SUCCESS;
     }
-    else if(threadToBlock->getState() != Blocked)
+
+    threadToBlock = getThreadFromReadyQueue(tid); // method removes thread from queue
+
+    if (threadToBlock == nullptr)
     {
-        threadToBlock->setState(Blocked);
+        return SUCCESS;
     }
     blockedThreads.push_back(threadToBlock);
     return SUCCESS;
@@ -335,7 +360,20 @@ int uthread_resume(int tid)
 */
 int uthread_sleep(int num_quantums)
 {
+    //TODO should we block signals?
     //TODO manager method + thread inner state change
+    if (num_quantums <= 0)
+    {
+        //TODO throw error? print error?
+        return FAILED;
+    }
+    runningThread->setTimeTillWakeUp(num_quantums +
+                                             uthread_get_total_quantums());
+    sleepingThreads.push_back(runningThread);
+    //TODO wait for RR where new runningThread will be assigned
+
+    return SUCCESS;
+    
 }
 
 
@@ -408,19 +446,5 @@ int preempt()
      * Move to the next thread in the readyQueue (change states, sigLongJump)
      */
 }
-
-
-void signal_handler(int sig)
-{
-    /*
-     * Check with the current running thread if it is masking a signal,
-     * if so then ignore the signal, else context switch.
-     *
-     */
-
-    if(runningThread->getEnv()->__saved_mask)
-
-}
-
 
 
