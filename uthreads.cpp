@@ -78,6 +78,11 @@ priority_queue<unsigned int ,vector<unsigned int>, greater<unsigned int>> tidHea
 vector<Thread*> sleepingThreads;
 vector<Thread*> blockedThreads;
 Thread *runningThread;
+Thread* threadZero;
+
+sigset_t sigSet;
+
+int totalQuantum;
 
 
 /**
@@ -93,21 +98,64 @@ void roundRobinAlg()
         // ?? sigsetjmp? ??
         // block signals
         // check sleeping and move to ready
-        for (auto it = sleepingThreads.begin(); it != sleepingThreads.end(); ++it) {
-            //if ((*it).)
+
+		int retVal = sigsetjmp(runningThread->getEnv(), 1);
+		if (retVal != 0)
+		{
+			return;
+		}
+
+		int totalQuantum = uthread_get_total_quantums();
+        Thread* threadToWake;
+		for (auto it = sleepingThreads.begin(); it != sleepingThreads.end(); ++it)
+		{
+			if ((*it)->getTimeToWake() <= totalQuantum)
+			{
+				threadToWake = *it;
+				sleepingThreads.erase(it);
+				readyQueue.push_back(threadToWake);
+				//TODO maybe change state
+			}
         }
+
+		if (runningThread != nullptr)
+		{
+			readyQueue.push_back(runningThread);
+		}
+
+		//head of readyQueue will move to running and pop from queue
+		runningThread = readyQueue.front();
+		readyQueue.pop_front();
+		//TODO change state?
 
 
         //before trying to pull from ready, check if not empty
 
         // sigwait()
         // siglongjump to make sure time will start in a new quantum (happens in the signal catcher)
+		//goto next thread
+		sigwait(&sigSet);
+		sigprocmask(SIG_UNBLOCK, &sigSet, NULL);
+		//todo wait for next signal
+		siglongjmp(runningThread->getEnv(), 1);
     }
 }
 
 
 void timerHandler(int sig)
 {
+	/*int retVal = sigsetjmp(runningThread->getEnv(), 1);
+	if(retVal == 0)
+	{
+		roundRobinAlg();
+	}*/
+	sigprocmask(SIG_SETMASK, &sigSet, NULL);
+	totalQuantum++;
+	roundRobinAlg();
+
+	/*sigprocmask(SIG_UNBLOCK, &sigSet, NULL);
+	//todo wait for next signal
+	siglongjmp(runningThread->getEnv(), 1);*/
 
 }
 
@@ -126,24 +174,32 @@ int uthread_init(int quantum_usecs)
         return FAILED;
     }
 
-    sigAction.sa_handler = &timerHandler;
+	// init threadZero
+    threadZero = new Thread(0, nullptr);
+	readyQueue.push_back(threadZero);
+	for (int i = 1; i <= 100; ++i)
+	{
+		tidHeap.push((const unsigned int &) i);
+	}
+	sigemptyset(&sigSet);
+	sigaddset(&sigSet, SIGVTALRM);
 
-    // initial timer for the first interval
-    timer.it_value.tv_sec = 0;
-    timer.it_value.tv_usec = quantum_usecs;
+	totalQuantum = 0;
 
-    // initial timer for rest of iterations
-    timer.it_interval.tv_sec = 0;
-    timer.it_interval.tv_usec = quantum_usecs;
+	sigAction.sa_handler = &timerHandler;
 
+	// initial timer for the first interval
+	timer.it_value.tv_sec = 0;
+	timer.it_value.tv_usec = quantum_usecs;
 
+	// initial timer for rest of iterations
+	timer.it_interval.tv_sec = 0;
+	timer.it_interval.tv_usec = quantum_usecs;
 
-    for (int i = 1; i <= 100; ++i) {
-        tidHeap.push((const unsigned int &) i);
-    }
 
     if (sigaction(SIGVTALRM, &sigAction, NULL) < 0)
     {
+		//TODO print err?
         return FAILED;
     }
 
@@ -151,8 +207,8 @@ int uthread_init(int quantum_usecs)
     {
         return FAILED;
     }
-    // init runningThread to 0 (global thread)
 
+	return SUCCESS;
 }
 
 
@@ -173,6 +229,7 @@ int uthread_spawn(void (*f)(void))
         unsigned int newTid = tidHeap.top();
         tidHeap.pop();
         Thread* newThread = new Thread(newTid, f);
+		sigemptyset(&newThread->getEnv()->__saved_mask);
 
         readyQueue.push_back(newThread);
 
@@ -245,6 +302,9 @@ void freeAll()
             delete(curThread);
         }
     }
+	sigemptyset(&sigSet);
+	//TODO kill timer
+	//TODO release all dasts
 }
 
 /*

@@ -67,7 +67,7 @@ private:
     sigjmp_buf env;
     //void sigMaskSet; //TODO change type
     unsigned int quantumCounter; // inc every time this thread is in running state
-    int timeUntilWakeUp; //TODO change type
+    int timeToWake; //TODO change type
     char* allocatedStack;
 
 
@@ -80,10 +80,7 @@ public:
     const State getState();
     void setState(const State state);
 
-//    void getStartedSleepTime()
-//    {
-//        return startedSleepTime;
-//    }
+    int getTimeToWake();
 
     void incrementQuantumCounter();
 

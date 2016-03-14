@@ -9,7 +9,7 @@ Thread::Thread(unsigned int threadId, void (*threadFunction)(void))
 {
     this->threadId = threadId;
     this->state = Ready;
-    startedSleepTime = 0;
+    timeToWake = 0;
     quantumCounter = 0;
     allocatedStack = new char[STACK_SIZE];
 
@@ -19,7 +19,7 @@ Thread::Thread(unsigned int threadId, void (*threadFunction)(void))
     sigsetjmp(env, 1); //TODO what is this 1 savemask thing?
     env->__jmpbuf[JB_SP] = translate_address(stackPointer);
     env->__jmpbuf[JB_PC] = translate_address(programCounter);
-    sigemptyset(env->__saved_mask);
+    sigemptyset(&env->__saved_mask);
 
     /**
      * timer shit follows
@@ -52,10 +52,10 @@ void Thread::setState(const State state)
      */
 }
 
-//    void getStartedSleepTime()
-//    {
-//        return startedSleepTime;
-//    }
+int Thread::getTimeToWake()
+{
+    return timeToWake;
+}
 
 void Thread::incrementQuantumCounter()
 {
@@ -64,10 +64,10 @@ void Thread::incrementQuantumCounter()
 
 void Thread::resetSleepingTime()
 {
-    startedSleepTime = 0;
+    timeToWake = 0;
 }
 
-sigjmp_buf& getEnv()
+sigjmp_buf& Thread::getEnv()
 {
     return env;
 }
@@ -77,5 +77,5 @@ sigjmp_buf& getEnv()
 // terminated
 void Thread::setTimeTillWakeUp(int numQuantums)
 {
-    this->timeUntilWakeUp = numQuantums;
+    this->timeToWake = numQuantums;
 }
