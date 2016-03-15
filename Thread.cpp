@@ -17,6 +17,7 @@ Thread::Thread(unsigned int threadId, void (*threadFunction)(void))
     stackPointer = (address_t)allocatedStack + STACK_SIZE - sizeof(address_t);
     programCounter = (address_t)threadFunction;
     sigsetjmp(env, 1); //TODO what is this 1 savemask thing?
+
     env->__jmpbuf[JB_SP] = translate_address(stackPointer);
     env->__jmpbuf[JB_PC] = translate_address(programCounter);
     sigemptyset(&env->__saved_mask);
@@ -31,7 +32,7 @@ Thread::Thread(unsigned int threadId, void (*threadFunction)(void))
 Thread::~Thread()
 {
     //TODO should we free something?
-    free(this->stackPointer);
+    delete(this->allocatedStack);
 }
 
 const unsigned int Thread::getThreadId()

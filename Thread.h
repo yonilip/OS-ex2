@@ -64,7 +64,9 @@ private:
     unsigned int threadId;
     State state; // TODO check if needed
     //TODO check if needed alloction for thread stack
+
     sigjmp_buf env;
+
     //void sigMaskSet; //TODO change type
     unsigned int quantumCounter; // inc every time this thread is in running state
     int timeToWake; //TODO change type

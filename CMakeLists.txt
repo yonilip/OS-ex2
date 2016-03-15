@@ -3,5 +3,5 @@ project(untitled1)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 
-set(SOURCE_FILES demo_jmp.c)
+set(SOURCE_FILES main.cpp uthreads.cpp uthreads.h Thread.cpp Thread.h)
 add_executable(untitled1 ${SOURCE_FILES})
