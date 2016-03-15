@@ -73,7 +73,7 @@
 using namespace std;
 
 deque<Thread*> readyQueue;
-priority_queue<unsigned int ,vector<unsigned int>, greater<unsigned int>> tidHeap;
+priority_queue<unsigned int ,vector<unsigned int>, greater<unsigned int> > tidHeap;
 
 vector<Thread*> sleepingThreads;
 vector<Thread*> blockedThreads;
@@ -87,8 +87,8 @@ struct sigaction sigAction;
 
 void roundRobinAlg()
 {
-    while(true)
-    {
+	while(true)
+	{
 		int retVal = sigsetjmp(runningThread->getEnv(), 1);
 		if (retVal != 0)
 		{
@@ -97,45 +97,54 @@ void roundRobinAlg()
 		}
 
 		int totalQuantum = uthread_get_total_quantums();
-        Thread* threadToWake;
-		for (auto it = sleepingThreads.begin(); it != sleepingThreads.end(); ++it)
+		Thread* threadToWake;
+		if (!sleepingThreads.empty())
 		{
-			if ((*it)->getTimeToWake() <= totalQuantum)
-			{
-				threadToWake = *it;
-				sleepingThreads.erase(it);
-				readyQueue.push_back(threadToWake);
-				//TODO maybe change state
-			}
-        }
 
-		if (runningThread != nullptr)
-		{
-			readyQueue.push_back(runningThread);
+
+			for (vector<Thread*>::iterator it = sleepingThreads.begin();
+				 it != sleepingThreads.end(); ++it)
+			{
+				if ((*it)->getTimeToWake() <= totalQuantum)
+				{
+					threadToWake = *it;
+					sleepingThreads.erase(it);
+					readyQueue.push_back(threadToWake);
+					//TODO maybe change state
+				}
+			}
 		}
 
+
+
 		//head of readyQueue will move to running and pop from queue
-		runningThread = readyQueue.front();
-		readyQueue.pop_front();
+		if (!readyQueue.empty()){
+
+			readyQueue.push_back(runningThread);
+
+			runningThread = readyQueue.front();
+			readyQueue.pop_front();
+		}
 		//TODO change state?
 
 
-        //before trying to pull from ready, check if not empty
+		//before trying to pull from ready, check if not empty
 
-        // sigwait()
-        // siglongjump to make sure time will start in a new quantum (happens in the signal catcher)
+		// sigwait()
+		// siglongjump to make sure time will start in a new quantum (happens in the signal catcher)
 		//goto next thread
-        sigemptyset(&sigSet); // this will ignore the pending signals
+		sigemptyset(&sigSet); // this will ignore the pending signals
 		sigprocmask(SIG_UNBLOCK, &sigSet, NULL);
+
 
 		if(setitimer(ITIMER_VIRTUAL, &timer, NULL)) // start counting from now
 		{
-            cout << "cannot set timer " << runningThread->getThreadId() << endl;
+			cout << "cannot set timer " << runningThread->getThreadId() << endl;
 			//return FAILED;
 		}
 
 		siglongjmp(runningThread->getEnv(), 1);
-    }
+	}
 }
 
 
@@ -146,10 +155,10 @@ void timerHandler(int sig)
 	{
 		roundRobinAlg();
 	}*/
-    cout << "catch signal, total quantum is : " << uthread_get_total_quantums() << runningThread->getThreadId() << endl;
-    sigprocmask(SIG_SETMASK, &sigSet, NULL);
-    totalQuantum++;
-    roundRobinAlg();
+	cout << "catch signal, total quantum is : " << uthread_get_total_quantums() << runningThread->getThreadId() << endl;
+	sigprocmask(SIG_SETMASK, &sigSet, NULL);
+	totalQuantum++;
+	roundRobinAlg();
 
 	/*sigprocmask(SIG_UNBLOCK, &sigSet, NULL);
 	//todo wait for next signal
@@ -167,15 +176,15 @@ void timerHandler(int sig)
 */
 int uthread_init(int quantum_usecs)
 {
-    if(quantum_usecs <= 0)
-    {
-        cout << "invalid quantum_usecs" << endl;
-        return FAILED;
-    }
+	if(quantum_usecs <= 0)
+	{
+		cout << "invalid quantum_usecs" << endl;
+		return FAILED;
+	}
 
 	// init threadZero
-    threadZero = new Thread(0, nullptr);
-    cout << "init Thread zero" << endl;
+	threadZero = new Thread(0, NULL);
+	cout << "init Thread zero" << endl;
 	readyQueue.push_back(threadZero);
 	for (int i = 1; i <= 100; ++i)
 	{
@@ -188,30 +197,42 @@ int uthread_init(int quantum_usecs)
 	totalQuantum = 0;
 
 	sigAction.sa_handler = &timerHandler;
-    sigAction.sa_flags = 0;
+	sigAction.sa_flags = 0;
 
 	// initial timer for the first interval
-	timer.it_value.tv_sec = 0;
-	timer.it_value.tv_usec = quantum_usecs;
+	timer.it_value.tv_sec = (quantum_usecs / SECOND);
+	timer.it_value.tv_usec = quantum_usecs - (quantum_usecs/SECOND);
 
 	// initial timer for rest of iterations
-	timer.it_interval.tv_sec = 0;
-	timer.it_interval.tv_usec = quantum_usecs;
+	timer.it_interval.tv_sec = (quantum_usecs);
+	timer.it_interval.tv_usec = quantum_usecs - (quantum_usecs/SECOND);
 
 
-    if (sigaction(SIGVTALRM, &sigAction, NULL) < 0)
-    {
-        cout << "cannot initial gigaction properly" << endl;
+	if (sigaction(SIGVTALRM, &sigAction, NULL) < 0)
+	{
+		cout << "cannot initial gigaction properly" << endl;
 		//TODO print err?
-        return FAILED;
-    }
+		return FAILED;
+	}
+/*	if (sigaction(SIGSEGV, &sigAction, NULL) < 0)
+	{
+		cout << "cannot initial gigaction properly" << endl;
+		//TODO print err?
+		return FAILED;
+	}*/
 
-    if(setitimer(ITIMER_VIRTUAL, &timer, NULL))
-    {
-        cout << "cannot set timer" << endl;
-        return FAILED;
-    }
+	if(setitimer(ITIMER_VIRTUAL, &timer, NULL))
+	{
+		cout << "cannot set timer" << endl;
+		return FAILED;
+	}
 
+
+	runningThread = readyQueue.front();
+	readyQueue.pop_back();
+	/*	sigsetjmp(runningThread->getEnv(), 1);
+		siglongjmp(runningThread->getEnv(), 1);*/
+	roundRobinAlg();
 	return SUCCESS;
 }
 
@@ -228,74 +249,76 @@ int uthread_init(int quantum_usecs)
 */
 int uthread_spawn(void (*f)(void))
 {
-    if (readyQueue.size() < MAX_THREAD_NUM)
-    {
-        unsigned int newTid = tidHeap.top();
-        tidHeap.pop();
-        cout << "init new thread with tid :" << newTid << endl;
-        Thread* newThread = new Thread(newTid, f);
+	if (readyQueue.size() < MAX_THREAD_NUM)
+	{
+		unsigned int newTid = tidHeap.top();
+		tidHeap.pop();
+		cout << "init new thread with tid :" << newTid << endl;
+		Thread* newThread = new Thread(newTid, f);
 
 		sigemptyset(&newThread->getEnv()->__saved_mask);
-        readyQueue.push_back(newThread);
+		readyQueue.push_back(newThread);
 
-        return newTid;
-    }
-    else
-    {
-        cout << "queque is full, cannot spawn additional threads" << endl;
-        return FAILED;
-    }
+		return newTid;
+	}
+	else
+	{
+		cout << "queque is full, cannot spawn additional threads" << endl;
+		return FAILED;
+	}
 
 
 }
+/*
 
 
 Thread* getThreadFromDAST(int tid)
 {
-    Thread* threadToFind;
+	Thread* threadToFind;
 
-    if (runningThread->getThreadId() == tid) return runningThread; //TODO what happens if the running thread terminates itself? what happens next?
+	if (runningThread->getThreadId() == tid) return runningThread; //TODO what happens if the running thread terminates itself? what happens next?
 
-    if (!readyQueue.empty()){
-        for(auto it = readyQueue.begin() ; it != readyQueue.end() ; it++)
-        {
-            if ((*it)->getThreadId() == tid)
-            {
-                threadToFind = *it;
-                readyQueue.erase(it);
-                return threadToFind;
-            }
-        }
-    }
+	if (!readyQueue.empty()){
+		for(deque<Thread*>::iterator it = readyQueue.begin() ; it != readyQueue.end() ; it++)
+		{
+			if ((*it)->getThreadId() == tid)
+			{
+				threadToFind = *it;
+				readyQueue.erase(it);
+				return threadToFind;
+			}
+		}
+	}
 
-    if (!sleepingThreads.empty()){
-        for(auto it = sleepingThreads.begin() ; it != sleepingThreads.end() ; it++)
-        {
-            if ((*it)->getThreadId() == tid)
-            {
-                threadToFind = *it;
-                sleepingThreads.erase(it);
-                return threadToFind;
-            }
-        }
-    }
+	if (!sleepingThreads.empty()){
+		for(auto it = sleepingThreads.begin() ; it != sleepingThreads.end() ; it++)
+		{
+			if ((*it)->getThreadId() == tid)
+			{
+				threadToFind = *it;
+				sleepingThreads.erase(it);
+				return threadToFind;
+			}
+		}
+	}
 
-    if (!blockedThreads.empty()){
-        for(auto it = blockedThreads.begin() ; it != blockedThreads.end() ; it++)
-        {
-            if ((*it)->getThreadId() == tid)
-            {
-                threadToFind = *it;
-                blockedThreads.erase(it);
-                return threadToFind;
-            }
-        }
-    } 
+	if (!blockedThreads.empty()){
+		for(auto it = blockedThreads.begin() ; it != blockedThreads.end() ; it++)
+		{
+			if ((*it)->getThreadId() == tid)
+			{
+				threadToFind = *it;
+				blockedThreads.erase(it);
+				return threadToFind;
+			}
+		}
+	}
 
-    // TODO think about impl of this function. do we really need to search all DAST? so we need to pop the thread any time?
-    // TODO kefel code
-    return nullptr;
+	// TODO think about impl of this function. do we really need to search all DAST? so we need to pop the thread any time?
+	// TODO kefel code
+	return nullptr;
 }
+*/
 
 /**
  * TODO DOC
@@ -338,12 +361,12 @@ Thread *removeThreadFromBlockedQueue(int tid)
 {
 	if (!validatePositiveTid(tid))
 	{
-		return nullptr;
+		return NULL;
 	}
-	Thread* threadToFind = nullptr;
+	Thread* threadToFind = NULL;
 	if (!blockedThreads.empty()){
-		for(auto it = blockedThreads.begin() ; it !=
-				blockedThreads.end() ; it++)
+		for(vector<Thread*>::iterator it = blockedThreads.begin() ; it !=
+											   blockedThreads.end() ; it++)
 		{
 			if ((*it)->getThreadId() == tid)
 			{
@@ -367,8 +390,8 @@ Thread *removeThreadFromSleepingQueue(int tid)
 	}
 	Thread* threadToFind = nullptr;
 	if (!sleepingThreads.empty()){
-		for(auto it = sleepingThreads.begin() ; it !=
-											   sleepingThreads.end() ; it++)
+		for(vector<Thread*>::iterator it = sleepingThreads.begin() ; it !=
+												sleepingThreads.end() ; it++)
 		{
 			if ((*it)->getThreadId() == tid)
 			{
@@ -384,18 +407,18 @@ Thread *removeThreadFromSleepingQueue(int tid)
 void freeAll()
 {
 
-    Thread* curThread;
-    for (int i = 0; i <= MAX_THREAD_NUM ; ++i) {
-        curThread = getThreadFromDAST(i);
-        if (curThread != nullptr)
-        {
-            cout << "delete thread with pid : " << curThread->getThreadId() << endl;
-            delete(curThread);
-        }
-    }
+/*	Thread* curThread;
+	for (int i = 0; i <= MAX_THREAD_NUM ; ++i) {
+		curThread = getThreadFromDAST(i);
+		if (curThread != nullptr)
+		{
+			cout << "delete thread with pid : " << curThread->getThreadId() << endl;
+			delete(curThread);
+		}
+	}
 	sigemptyset(&sigSet);
 	//TODO kill timer
-	//TODO release all dasts
+	//TODO release all dasts*/
 }
 
 /*
@@ -411,27 +434,27 @@ void freeAll()
 */
 int uthread_terminate(int tid)
 {
-    /*
-     * need to block signals! until we finish the temination.
-     *
-     */
-	if (!validatePositiveTid(tid))
+	/*
+	 * need to block signals! until we finish the temination.
+	 *
+	 */
+/*	if (!validatePositiveTid(tid))
 	{
 		//TODO ERROR!!!
 		return FAILED;
 	}
-    if (tid == MAIN_THREAD)
-    {
-        freeAll();
-        exit(SUCCESS);
-    }
-    //TODO what happens when terminating running thread? need to block signals!
-    Thread* threadToDel = getThreadFromDAST(tid); // removes thread from the container it came from
-    if (threadToDel == nullptr) return FAILED; //TODO should we throw err?
-    delete(threadToDel);
-    cout << "delete thread with pid : " << threadToDel->getThreadId() << endl;
-    tidHeap.push((const unsigned int &) tid);
-    //unblock the signal
+	if (tid == MAIN_THREAD)
+	{
+		freeAll();
+		exit(SUCCESS);
+	}
+	//TODO what happens when terminating running thread? need to block signals!
+	Thread* threadToDel = getThreadFromDAST(tid); // removes thread from the container it came from
+	if (threadToDel == nullptr) return FAILED; //TODO should we throw err?
+	delete(threadToDel);
+	cout << "delete thread with pid : " << threadToDel->getThreadId() << endl;
+	tidHeap.push((const unsigned int &) tid);
+	//unblock the signal*/
 }
 
 
@@ -447,35 +470,35 @@ int uthread_terminate(int tid)
 */
 int uthread_block(int tid)
 {
-    /*
-     * Only ready and running threads could be blocked!!
-     */
-    //TODO should we block signals?
+	/*
+	 * Only ready and running threads could be blocked!!
+	 */
+	//TODO should we block signals?
 	if (!validatePositiveTid(tid))
 	{
 		return FAILED; // TODO err
 	}
 	deque<Thread *>::iterator threadIterToBlock;
 	//threadIterToBlock = getThreadFromDAST(tid);
-    if(runningThread->getThreadId() == tid)
-    {
-        blockedThreads.push_back(runningThread);
-        // TODO make scheduling decision
-        cout << "block thread with pid : " << (*threadIterToBlock)->getThreadId() << endl;
-        return SUCCESS;
-    }
+	if(runningThread->getThreadId() == tid)
+	{
+		blockedThreads.push_back(runningThread);
+		// TODO make scheduling decision
+		cout << "block thread with pid : " << (*threadIterToBlock)->getThreadId() << endl;
+		return SUCCESS;
+	}
 
-    threadIterToBlock = getThreadIterFromReadyQueue(tid); // method gets thread iter from queue
+	threadIterToBlock = getThreadIterFromReadyQueue(tid); // method gets thread iter from queue
 
 	if (threadIterToBlock == readyQueue.end())
-    {
+	{
 		//cout << "block thread with pid : " << (*threadIterToBlock)->getThreadId() << endl;
 		return SUCCESS;
 	}
 	Thread* tempThreadp = (*threadIterToBlock);
 	readyQueue.erase(threadIterToBlock);
 	blockedThreads.push_back(tempThreadp);
-    return SUCCESS;
+	return SUCCESS;
 }
 
 
@@ -548,20 +571,20 @@ int uthread_resume(int tid)
 */
 int uthread_sleep(int num_quantums)
 {
-    //TODO should we block signals?
-    //TODO manager method + thread inner state change
-    if (num_quantums <= 0)
-    {
-        //TODO throw error? print error?
-        return FAILED;
-    }
-    runningThread->setTimeTillWakeUp(num_quantums +
-                                             uthread_get_total_quantums());
-    sleepingThreads.push_back(runningThread);
-    //TODO wait for RR where new runningThread will be assigned
+	//TODO should we block signals?
+	//TODO manager method + thread inner state change
+	if (num_quantums <= 0)
+	{
+		//TODO throw error? print error?
+		return FAILED;
+	}
+	runningThread->setTimeTillWakeUp(num_quantums +
+									 uthread_get_total_quantums());
+	sleepingThreads.push_back(runningThread);
+	//TODO wait for RR where new runningThread will be assigned
 
-    return SUCCESS;
-    
+	return SUCCESS;
+
 }
 
 
@@ -574,7 +597,7 @@ int uthread_sleep(int num_quantums)
 */
 int uthread_get_time_until_wakeup(int tid)
 {
-    //TODO return the time remains for thread to sleep
+	//TODO return the time remains for thread to sleep
 
 }
 
@@ -585,7 +608,7 @@ int uthread_get_time_until_wakeup(int tid)
 */
 int uthread_get_tid()
 {
-    //TODO return private field
+	//TODO return private field
 
 }
 
@@ -600,7 +623,7 @@ int uthread_get_tid()
 */
 int uthread_get_total_quantums()
 {
-    return totalQuantum;
+	return totalQuantum;
 }
 
 
@@ -615,7 +638,7 @@ int uthread_get_total_quantums()
 */
 int uthread_get_quantums(int tid)
 {
-    return runningThread->getqQuantumCounter();
+	return runningThread->getqQuantumCounter();
 }
 
 

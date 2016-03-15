@@ -53,7 +53,8 @@ Thread::Thread(unsigned int threadId, void (*threadFunction)(void))
     this->state = Ready;
     timeToWake = 0;
     quantumCounter = 0;
-    allocatedStack = new char[STACK_SIZE];
+    //allocatedStack = new char[STACK_SIZE];
+	//allocatedStack = new char[STACK_SIZE];
 
     address_t stackPointer, programCounter;
     stackPointer = (address_t)allocatedStack + STACK_SIZE - sizeof(address_t);
@@ -74,7 +75,7 @@ Thread::Thread(unsigned int threadId, void (*threadFunction)(void))
 Thread::~Thread()
 {
     //TODO should we free something?
-    delete(this->allocatedStack);
+   // delete(this->allocatedStack);
 }
 
 const unsigned int Thread::getThreadId()
