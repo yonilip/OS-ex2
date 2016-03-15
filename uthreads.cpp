@@ -95,10 +95,6 @@ void roundRobinAlg()
 {
     while(true)
     {
-        // ?? sigsetjmp? ??
-        // block signals
-        // check sleeping and move to ready
-
 		int retVal = sigsetjmp(runningThread->getEnv(), 1);
 		if (retVal != 0)
 		{
@@ -135,10 +131,14 @@ void roundRobinAlg()
         // sigwait()
         // siglongjump to make sure time will start in a new quantum (happens in the signal catcher)
 		//goto next thread
-		sigwait(&sigSet);
+        sigemptyset(&sigSet); // this will ignore the pending signals
 		sigprocmask(SIG_UNBLOCK, &sigSet, NULL);
-		//todo wait for next signal
-        //To address this, simply set the timer again
+
+		if(setitimer(ITIMER_VIRTUAL, &timer, NULL)) // start counting from now
+		{
+			return FAILED;
+		}
+
 		siglongjmp(runningThread->getEnv(), 1);
     }
 }

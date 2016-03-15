@@ -7,6 +7,10 @@
 #include <stdio.h>
 #include <signal.h>
 #include <unistd.h>
+#define SECOND 1000000
+
+
+sigset_t sigSet;
 
 
 void catch_int(int sigNum) {
@@ -25,9 +29,25 @@ int main(void)
 		printf("sigaction error.");
 	}
 
-  for(;;) {
+	sigaddset(&sigSet, SIGINT);
+	sigprocmask(SIG_SETMASK, &sigSet, NULL);
+
+	usleep(SECOND);
+	usleep(SECOND);
+	usleep(SECOND);
+	usleep(SECOND);
+	usleep(SECOND);
+	usleep(SECOND);
+	usleep(SECOND);
+	usleep(SECOND);
+	usleep(SECOND);
+
+	sigemptyset(&sigSet);
+	sigprocmask(SIG_UNBLOCK, &sigSet, NULL);
+
+/*	for(;;) {
 	  pause(); // wait until receiving a signal
-  }
+  }*/
   return 0;
 }
 
