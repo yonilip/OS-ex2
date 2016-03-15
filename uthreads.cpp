@@ -130,8 +130,8 @@ void roundRobinAlg()
 
 		if(setitimer(ITIMER_VIRTUAL, &timer, NULL)) // start counting from now
 		{
-            cout << "cannot set timer " << curThread->getThreadId() << endl;
-			return FAILED;
+            cout << "cannot set timer " << runningThread->getThreadId() << endl;
+			//return FAILED;
 		}
 
 		siglongjmp(runningThread->getEnv(), 1);
@@ -146,7 +146,7 @@ void timerHandler(int sig)
 	{
 		roundRobinAlg();
 	}*/
-    cout << "catch signal, total quantum is : " << uthread_get_total_quantums() << curThread->getThreadId() << endl;
+    cout << "catch signal, total quantum is : " << uthread_get_total_quantums() << runningThread->getThreadId() << endl;
     sigprocmask(SIG_SETMASK, &sigSet, NULL);
     totalQuantum++;
     roundRobinAlg();
@@ -297,6 +297,90 @@ Thread* getThreadFromDAST(int tid)
     return nullptr;
 }
 
+/**
+ * TODO DOC
+ */
+bool validatePositiveTid(int tid)
+{
+	if (tid > 0) return true;
+}
+
+/**
+ * TODO DOC
+ */
+deque<Thread *>::iterator getThreadIterFromReadyQueue(int tid)
+{
+	if (!validatePositiveTid(tid))
+	{
+		return readyQueue.end();
+	}
+	//Thread* threadToFind = nullptr;
+	deque<Thread*>::iterator it;
+	if (!readyQueue.empty()){
+		for(it = readyQueue.begin() ; it != readyQueue.end() ; it++)
+		{
+			if ((*it)->getThreadId() == tid)
+			{
+				//threadToFind = *it;
+				//readyQueue.erase(it);
+				//return threadToFind;
+				return it;
+			}
+		}
+	}
+	return it;
+}
+
+/**
+ * TODO DOC
+ */
+Thread *removeThreadFromBlockedQueue(int tid)
+{
+	if (!validatePositiveTid(tid))
+	{
+		return nullptr;
+	}
+	Thread* threadToFind = nullptr;
+	if (!blockedThreads.empty()){
+		for(auto it = blockedThreads.begin() ; it !=
+				blockedThreads.end() ; it++)
+		{
+			if ((*it)->getThreadId() == tid)
+			{
+				threadToFind = *it;
+				blockedThreads.erase(it);
+				return threadToFind;
+			}
+		}
+	}
+	return threadToFind;
+}
+
+/**
+ * TODO DOC
+ */
+Thread *removeThreadFromSleepingQueue(int tid)
+{
+	if (!validatePositiveTid(tid))
+	{
+		return nullptr;
+	}
+	Thread* threadToFind = nullptr;
+	if (!sleepingThreads.empty()){
+		for(auto it = sleepingThreads.begin() ; it !=
+											   sleepingThreads.end() ; it++)
+		{
+			if ((*it)->getThreadId() == tid)
+			{
+				threadToFind = *it;
+				sleepingThreads.erase(it);
+				return threadToFind;
+			}
+		}
+	}
+	return threadToFind;
+}
+
 void freeAll()
 {
 
@@ -331,6 +415,11 @@ int uthread_terminate(int tid)
      * need to block signals! until we finish the temination.
      *
      */
+	if (!validatePositiveTid(tid))
+	{
+		//TODO ERROR!!!
+		return FAILED;
+	}
     if (tid == MAIN_THREAD)
     {
         freeAll();
@@ -340,30 +429,12 @@ int uthread_terminate(int tid)
     Thread* threadToDel = getThreadFromDAST(tid); // removes thread from the container it came from
     if (threadToDel == nullptr) return FAILED; //TODO should we throw err?
     delete(threadToDel);
-    cout << "delete thread with pid : " << curThread->getThreadId() << endl;
+    cout << "delete thread with pid : " << threadToDel->getThreadId() << endl;
     tidHeap.push((const unsigned int &) tid);
     //unblock the signal
 }
 
-/**
- * TODO DOC
- */
-Thread *getThreadFromReadyQueue(int tid)
-{
-    Thread* threadToFind = nullptr;
-    if (!readyQueue.empty()){
-        for(auto it = readyQueue.begin() ; it != readyQueue.end() ; it++)
-        {
-            if ((*it)->getThreadId() == tid)
-            {
-                threadToFind = *it;
-                readyQueue.erase(it);
-                return threadToFind;
-            }
-        }
-    }
-    return threadToFind;
-}
+
 
 /*
  * Description: This function blocks the thread with ID tid. The thread may
@@ -380,31 +451,61 @@ int uthread_block(int tid)
      * Only ready and running threads could be blocked!!
      */
     //TODO should we block signals?
-    Thread* threadToBlock;
-    if(tid <= 0)
-    {
-        return FAILED; // TODO err
-    }
-    //threadToBlock = getThreadFromDAST(tid);
+	if (!validatePositiveTid(tid))
+	{
+		return FAILED; // TODO err
+	}
+	deque<Thread *>::iterator threadIterToBlock;
+	//threadIterToBlock = getThreadFromDAST(tid);
     if(runningThread->getThreadId() == tid)
     {
         blockedThreads.push_back(runningThread);
         // TODO make scheduling decision
-        cout << "block thread with pid : " << curThread->getThreadId() << endl;
+        cout << "block thread with pid : " << (*threadIterToBlock)->getThreadId() << endl;
         return SUCCESS;
     }
 
-    threadToBlock = getThreadFromReadyQueue(tid); // method removes thread from queue
+    threadIterToBlock = getThreadIterFromReadyQueue(tid); // method gets thread iter from queue
 
-    if (threadToBlock == nullptr)
+	if (threadIterToBlock == readyQueue.end())
     {
-        cout << "block thread with pid : " << curThread->getThreadId() << endl;
-        return SUCCESS;
-    }
-    blockedThreads.push_back(threadToBlock);
+		//cout << "block thread with pid : " << (*threadIterToBlock)->getThreadId() << endl;
+		return SUCCESS;
+	}
+	Thread* tempThreadp = (*threadIterToBlock);
+	readyQueue.erase(threadIterToBlock);
+	blockedThreads.push_back(tempThreadp);
     return SUCCESS;
 }
 
+
+vector<Thread *>::iterator getThreadIterFromBlockedQueue(int tid)
+{
+	vector<Thread *>::iterator it;
+	for (it = blockedThreads.begin() ; it != blockedThreads.end(); it++)
+	{
+		if ((*it)->getThreadId() == tid)
+		{
+			return it;
+		}
+	}
+	return blockedThreads.end();
+}
+
+bool isTidInitialized(int tid)
+{
+	if (tid < 0)
+	{
+		return false;
+	}
+
+	if (runningThread->getThreadId() == tid)
+	{
+		return true;
+	}
+
+
+}
 
 /*
  * Description: This function resumes a blocked thread with ID tid and moves
@@ -415,8 +516,25 @@ int uthread_block(int tid)
 */
 int uthread_resume(int tid)
 {
-    //TODO manager method
+	if (isTidInitialized(tid)) //TODO check if tid exists at all!
+	{
+		//TODO perror
+		return FAILED;
+	}
 
+	vector<Thread *>::iterator threadToResume =
+			getThreadIterFromBlockedQueue(tid);
+
+	if (threadToResume == blockedThreads.end())
+	{
+		return SUCCESS;
+	}
+
+	Thread* tempThread = *threadToResume;
+	blockedThreads.erase(threadToResume);
+	readyQueue.push_back(tempThread);
+	//TODO change state?
+	return SUCCESS;
 }
 
 
