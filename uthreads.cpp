@@ -102,6 +102,7 @@ void roundRobinAlg()
 		int retVal = sigsetjmp(runningThread->getEnv(), 1);
 		if (retVal != 0)
 		{
+			//TODO stop blocking signals!
 			return;
 		}
 
@@ -137,6 +138,7 @@ void roundRobinAlg()
 		sigwait(&sigSet);
 		sigprocmask(SIG_UNBLOCK, &sigSet, NULL);
 		//todo wait for next signal
+        //To address this, simply set the timer again
 		siglongjmp(runningThread->getEnv(), 1);
     }
 }
