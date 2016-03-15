@@ -122,3 +122,8 @@ void Thread::setTimeTillWakeUp(int numQuantums)
 {
     this->timeToWake = numQuantums;
 }
+
+int Thread::getqQuantumCounter()
+{
+    return quantumCounter;
+}

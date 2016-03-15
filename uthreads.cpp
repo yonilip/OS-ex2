@@ -600,9 +600,7 @@ int uthread_get_tid()
 */
 int uthread_get_total_quantums()
 {
-
-
-
+    return totalQuantum;
 }
 
 
@@ -617,22 +615,8 @@ int uthread_get_total_quantums()
 */
 int uthread_get_quantums(int tid)
 {
-    // TODO return the private field for reqested thread
-
+    return runningThread->getqQuantumCounter();
 }
 
-
-
-int preempt()
-{
-    /**
-     * this does the context switch.
-     * add all the threads that finished their sleeping time to the end of READY
-     * threads list (dont forget to change their states).
-     * If the quantum is expired, moce the preempted thread to the end of the
-     * Ready threads list
-     * Move to the next thread in the readyQueue (change states, sigLongJump)
-     */
-}
 
 
