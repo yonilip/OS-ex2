@@ -12,14 +12,18 @@
 
 void f(void)
 {
-    int i = 0;
-    /*while(1){
-        ++i;
-        //printf("in f (%d)\n",i);
+	int i = 0;
+	/*while(1){
+		++i;
+		//printf("in f (%d)\n",i);
 		std::cout << "in f " << i << std::endl;
-    }*/
-	std::cout << "in f " << i << std::endl;
+	}*/
+	while (1)
+	{
 
+	//std::cout << "in f " << i << std::endl;
+}
+	uthread_terminate(uthread_get_tid());
 }
 
 void g(void)
@@ -30,18 +34,39 @@ void g(void)
 		//printf("in f (%d)\n",i);
 		std::cout << "in g " << i << std::endl;
 	}*/
-	std::cout << "in g " << i << std::endl;
+	while (1){
+		//std::cout << "in g " << i << std::endl;
 
+	}
+	uthread_terminate(uthread_get_tid());
 }
 
 int main()
 {
-    uthread_init(300000);
-    uthread_spawn(f);
+	uthread_init(3000000);
+	uthread_spawn(f);
 	uthread_spawn(g);
 
 
-	while (1);
+	/*while (1)
+	{
+		//std::cout << "in main" << std::endl;
+		//getchar();
+		*//*pause();*//*
+	}*/
+	/*usleep(SECOND);
+	usleep(SECOND);
+	usleep(SECOND);
+	usleep(SECOND);
+	usleep(SECOND);
+	usleep(SECOND);
+	usleep(SECOND);
+	usleep(SECOND);
+	usleep(SECOND);
+	usleep(SECOND);
+	usleep(SECOND);*/
+
+	while(1);
 
 
 

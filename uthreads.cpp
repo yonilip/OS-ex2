@@ -87,13 +87,17 @@ struct sigaction sigAction;
 
 static void roundRobinAlg()
 {
+	//sigprocmask(SIG_SETMASK, &sigSet, NULL);
 	while(true)
 	{
-		int retVal = sigsetjmp(runningThread->getEnv(), 1);
-		if (retVal != 0)
+		if (runningThread != nullptr)
 		{
-			//TODO stop blocking signals!
-			return;
+			int retVal = sigsetjmp(runningThread->getEnv(), 1);
+			if (retVal != 0)
+			{
+				//TODO stop blocking signals!
+				return;
+			}
 		}
 
 		int totalQuantum = uthread_get_total_quantums();
@@ -134,7 +138,13 @@ static void roundRobinAlg()
 		// siglongjump to make sure time will start in a new quantum (happens in the signal catcher)
 		//goto next thread
 		sigemptyset(&sigSet); // this will ignore the pending signals
+		sigaddset(&sigSet, SIGVTALRM);
 		sigprocmask(SIG_UNBLOCK, &sigSet, NULL);
+
+		/*cout << "timer values:\nvalue sec: " << timer.it_value.tv_sec <<
+				"\nvalue usec: " << timer.it_value.tv_usec <<
+				"\ninterval sec: " << timer.it_interval.tv_sec <<
+				"\ninterval usec: " << timer.it_interval.tv_usec << endl;*/
 
 
 		if(setitimer(ITIMER_VIRTUAL, &timer, NULL)) // start counting from now
@@ -142,7 +152,7 @@ static void roundRobinAlg()
 			cout << "cannot set timer " << runningThread->getThreadId() << endl;
 			//return FAILED;
 		}
-
+		cout << "cur thread: " << runningThread->getThreadId() << endl;
 		siglongjmp(runningThread->getEnv(), 1);
 	}
 }
@@ -155,9 +165,9 @@ static void timerHandler(int sig)
 	{
 		roundRobinAlg();
 	}*/
-	cout << "catch signal, total quantum is : " << uthread_get_total_quantums() << runningThread->getThreadId() << endl;
 	sigprocmask(SIG_SETMASK, &sigSet, NULL);
 	totalQuantum++;
+	cout << "catch signal, total quantum is : " << totalQuantum << endl;
 	roundRobinAlg();
 
 	/*sigprocmask(SIG_UNBLOCK, &sigSet, NULL);
@@ -191,21 +201,23 @@ int uthread_init(int quantum_usecs)
 		tidHeap.push((const unsigned int &) i);
 	}
 
-	sigemptyset(&sigSet);
-	sigaddset(&sigSet, SIGVTALRM);
 
 	totalQuantum = 0;
 
-	sigAction.sa_handler = &timerHandler;
+	sigemptyset(&sigSet);
+	sigemptyset(&sigAction.sa_mask);
 	sigAction.sa_flags = 0;
+	sigAction.sa_handler = &timerHandler;
+	sigaddset(&sigSet, SIGVTALRM);
 
 	// initial timer for the first interval
-	timer.it_value.tv_sec = (quantum_usecs / SECOND);
-	timer.it_value.tv_usec = quantum_usecs - (quantum_usecs/SECOND);
+	timer.it_value.tv_sec = (quantum_usecs/SECOND);
+	timer.it_value.tv_usec = (quantum_usecs % SECOND);   //quantum_usecs - (quantum_usecs/SECOND);
 
 	// initial timer for rest of iterations
-	timer.it_interval.tv_sec = (quantum_usecs);
-	timer.it_interval.tv_usec = quantum_usecs - (quantum_usecs/SECOND);
+	timer.it_interval.tv_sec = (quantum_usecs/SECOND);
+	timer.it_interval.tv_usec = (quantum_usecs % SECOND);           //quantum_usecs - (quantum_usecs/SECOND);
+
 
 
 	if (sigaction(SIGVTALRM, &sigAction, NULL) < 0)
@@ -214,12 +226,6 @@ int uthread_init(int quantum_usecs)
 		//TODO print err?
 		return FAILED;
 	}
-/*	if (sigaction(SIGSEGV, &sigAction, NULL) < 0)
-	{
-		cout << "cannot initial gigaction properly" << endl;
-		//TODO print err?
-		return FAILED;
-	}*/
 
 	if(setitimer(ITIMER_VIRTUAL, &timer, NULL))
 	{
@@ -230,8 +236,6 @@ int uthread_init(int quantum_usecs)
 
 	runningThread = readyQueue.front();
 	readyQueue.pop_back();
-	/*	sigsetjmp(runningThread->getEnv(), 1);
-		siglongjmp(runningThread->getEnv(), 1);*/
 	roundRobinAlg();
 	return SUCCESS;
 }
@@ -350,18 +354,17 @@ static vector<Thread *>::iterator getThreadIterFromSleepingVec(int tid)
 static void freeAll()
 {
 
-/*	Thread* curThread;
-	for (int i = 0; i <= MAX_THREAD_NUM ; ++i) {
-		curThread = getThreadFromDAST(i);
-		if (curThread != nullptr)
-		{
-			cout << "delete thread with pid : " << curThread->getThreadId() << endl;
-			delete(curThread);
-		}
-	}
+	blockedThreads.clear();
+	sleepingThreads.clear();
+	readyQueue.clear();
+	delete(runningThread);
+
 	sigemptyset(&sigSet);
-	//TODO kill timer
-	//TODO release all dasts*/
+	//stop the timer
+	timer.it_interval.tv_sec = 0;
+	timer.it_interval.tv_usec = 0;
+
+	return;
 }
 
 /*
@@ -381,6 +384,8 @@ int uthread_terminate(int tid)
 	 * need to block signals! until we finish the temination.
 	 *
 	 */
+	cout << "In terminate for tid " << tid << endl;
+	sigprocmask(SIG_SETMASK, &sigSet, NULL);
 	if (!validatePositiveTid(tid))
 	{
 		//TODO ERROR!!!
@@ -394,30 +399,40 @@ int uthread_terminate(int tid)
 
 	//TODO what happens when terminating running thread? need to block signals!
 
-
-    int deletedTreadTid;
+	int deletedThreadID = -1;
 
     if(runningThread->getThreadId() == tid)
     {
         //TODO make manager decision
-    }
-
-    if(getThreadIterFromBlockedVec(tid) != blockedThreads.end())
+		deletedThreadID = runningThread->getThreadId();
+		delete(runningThread);
+		runningThread = nullptr;
+		tidHeap.push((const unsigned int &) deletedThreadID);
+		totalQuantum++;
+		roundRobinAlg();
+	}
+	auto blockedIt = getThreadIterFromBlockedVec(tid);
+    if(blockedIt != blockedThreads.end())
     {
-        deletedTreadTid = (*getThreadIterFromBlockedVec(tid))->getThreadId();
-        blockedThreads.erase(getThreadIterFromBlockedVec(tid));
+		deletedThreadID = (*blockedIt)->getThreadId();
+		blockedThreads.erase(blockedIt);
     }
 
-    if(getThreadIterFromReadyQueue(tid) != readyQueue.end())
+	auto readyIt = getThreadIterFromReadyQueue(tid);
+    if(readyIt != readyQueue.end())
     {
-        deletedTreadTid = (*getThreadIterFromReadyQueue(tid))->getThreadId();
-        readyQueue.erase(getThreadIterFromReadyQueue(tid));
+		deletedThreadID = (*readyIt)->getThreadId();
+		readyQueue.erase(readyIt);
     }
-    tidHeap.push(deletedTreadTid);
 
-	cout << "delete thread with pid : " << deletedTreadTid << endl;
+    tidHeap.push((const unsigned int &) deletedThreadID);
+
+	cout << "delete thread with tid : " << deletedThreadID << endl;
 
     //unblock the signal
+	sigemptyset(&sigSet); // this will ignore the pending signals
+	sigprocmask(SIG_UNBLOCK, &sigSet, NULL);
+	return SUCCESS;
 }
 
 
@@ -593,7 +608,6 @@ int uthread_get_tid()
 */
 int uthread_get_total_quantums()
 {
-    cout << "total quantum is : " << uthread_get_total_quantums() << endl;
 	return totalQuantum;
 }
 
