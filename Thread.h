@@ -31,6 +31,8 @@ private:
     unsigned int quantumCounter; // inc every time this thread is in running state
     int timeToWake; //TODO change type
     char allocatedStack[STACK_SIZE];
+	//char* allocatedStack;
+
 
 
 public:

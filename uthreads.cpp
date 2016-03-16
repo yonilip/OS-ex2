@@ -379,29 +379,48 @@ Thread *removeThreadFromBlockedQueue(int tid)
 	return threadToFind;
 }
 
-/**
- * TODO DOC
- */
-Thread *removeThreadFromSleepingQueue(int tid)
+
+vector<Thread *>::iterator getThreadIterFromBlockedVec(int tid)
 {
 	if (!validatePositiveTid(tid))
 	{
-		return nullptr;
+		return blockedThreads.end();
 	}
-	Thread* threadToFind = nullptr;
+	vector<Thread *>::iterator it;
+	for (it = blockedThreads.begin() ; it != blockedThreads.end(); it++)
+	{
+		if ((*it)->getThreadId() == tid)
+		{
+			return it;
+		}
+	}
+	return blockedThreads.end();
+}
+
+/**
+ * TODO DOC
+ */
+vector<Thread *>::iterator getThreadIterFromSleepingVec(int tid)
+{
+	if (!validatePositiveTid(tid))
+	{
+		return sleepingThreads.end();
+	}
+	//Thread* threadToFind = nullptr;
+	vector<Thread*>::iterator it;
 	if (!sleepingThreads.empty()){
-		for(vector<Thread*>::iterator it = sleepingThreads.begin() ; it !=
-												sleepingThreads.end() ; it++)
+		for(it = sleepingThreads.begin() ; it != sleepingThreads.end() ; it++)
 		{
 			if ((*it)->getThreadId() == tid)
 			{
-				threadToFind = *it;
-				sleepingThreads.erase(it);
-				return threadToFind;
+				//threadToFind = *it;
+				//sleepingThreads.erase(it);
+				//return threadToFind;
+				return it;
 			}
 		}
 	}
-	return threadToFind;
+	return sleepingThreads.end();
 }
 
 void freeAll()
@@ -502,18 +521,6 @@ int uthread_block(int tid)
 }
 
 
-vector<Thread *>::iterator getThreadIterFromBlockedQueue(int tid)
-{
-	vector<Thread *>::iterator it;
-	for (it = blockedThreads.begin() ; it != blockedThreads.end(); it++)
-	{
-		if ((*it)->getThreadId() == tid)
-		{
-			return it;
-		}
-	}
-	return blockedThreads.end();
-}
 
 bool isTidInitialized(int tid)
 {
@@ -545,8 +552,8 @@ int uthread_resume(int tid)
 		return FAILED;
 	}
 
-	vector<Thread *>::iterator threadToResume =
-			getThreadIterFromBlockedQueue(tid);
+	vector<Thread *>::iterator threadToResume = getThreadIterFromBlockedVec(
+			tid);
 
 	if (threadToResume == blockedThreads.end())
 	{
