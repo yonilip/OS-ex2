@@ -85,76 +85,103 @@ int totalQuantum;
 struct itimerval timer;
 struct sigaction sigAction;
 
+
+static void printAllDAST()
+{
+	deque<Thread*>::iterator it1;
+	vector<Thread*>::iterator it2;
+	vector<Thread*>::iterator it3;
+
+	for(it1 = readyQueue.begin() ; it1 != readyQueue.end() ; ++it1)
+	{
+		cout << " , " <<  (*it1)->getThreadId();
+	}
+	for(it2 = sleepingThreads.begin() ; it2 != sleepingThreads.end() ; ++it2)
+	{
+		cout << " , " <<  (*it2)->getThreadId();
+	}
+	for(it3 = blockedThreads.begin() ; it3 != blockedThreads.end() ; ++it3)
+	{
+		cout << " , " <<  (*it3)->getThreadId();
+	}
+}
+
+
+
+
 static void roundRobinAlg()
 {
+
 	sigprocmask(SIG_SETMASK, &sigSet, NULL);
-	while(true)
+	if (runningThread != nullptr)
 	{
-		if (runningThread != nullptr)
+		int retVal = sigsetjmp(runningThread->getEnv(), 1);
+		if (retVal != 0)
 		{
-			int retVal = sigsetjmp(runningThread->getEnv(), 1);
-			if (retVal != 0)
-			{
-				//TODO stop blocking signals!
-				return;
-			}
+			//TODO stop blocking signals!
+			return;
 		}
-
-		int totalQuantum = uthread_get_total_quantums();
-		Thread* threadToWake;
-		if (!sleepingThreads.empty())
-		{
-
-
-			for (vector<Thread*>::iterator it = sleepingThreads.begin();
-				 it != sleepingThreads.end(); ++it)
-			{
-				if ((*it)->getTimeToWake() <= totalQuantum)
-				{
-					threadToWake = *it;
-					sleepingThreads.erase(it);
-					readyQueue.push_back(threadToWake);
-					//TODO maybe change state
-				}
-			}
-		}
-
-
-
-		//head of readyQueue will move to running and pop from queue
-		if (!readyQueue.empty()){
-
-			readyQueue.push_back(runningThread);
-
-			runningThread = readyQueue.front();
-			readyQueue.pop_front();
-		}
-		//TODO change state?
-
-
-		//before trying to pull from ready, check if not empty
-
-		// sigwait()
-		// siglongjump to make sure time will start in a new quantum (happens in the signal catcher)
-		//goto next thread
-		sigemptyset(&sigSet); // this will ignore the pending signals
-		sigaddset(&sigSet, SIGVTALRM);
-		sigprocmask(SIG_UNBLOCK, &sigSet, NULL);
-
-		/*cout << "timer values:\nvalue sec: " << timer.it_value.tv_sec <<
-				"\nvalue usec: " << timer.it_value.tv_usec <<
-				"\ninterval sec: " << timer.it_interval.tv_sec <<
-				"\ninterval usec: " << timer.it_interval.tv_usec << endl;*/
-
-
-		if(setitimer(ITIMER_VIRTUAL, &timer, NULL)) // start counting from now
-		{
-			cout << "cannot set timer " << runningThread->getThreadId() << endl;
-			//return FAILED;
-		}
-		cout << "cur thread: " << runningThread->getThreadId() << endl;
-		siglongjmp(runningThread->getEnv(), 1);
 	}
+
+	int totalQuantum = uthread_get_total_quantums();
+	Thread* threadToWake;
+	if (!sleepingThreads.empty())
+	{
+
+
+		for (vector<Thread*>::iterator it = sleepingThreads.begin();
+			 it != sleepingThreads.end(); ++it)
+		{
+
+			if ((*it)->getTimeToWake() <= totalQuantum)
+			{
+				threadToWake = *it;
+				sleepingThreads.erase(it);
+				readyQueue.push_back(threadToWake);
+				//TODO maybe change state
+			}
+		}
+	}
+
+
+
+	//head of readyQueue will move to running and pop from queue
+	if (!readyQueue.empty()){
+
+		// need to check if ptr is null in case of termination
+		if(runningThread != nullptr)
+		{
+			readyQueue.push_back(runningThread);
+		}
+		runningThread = readyQueue.front();
+		readyQueue.pop_front();
+	}
+	//TODO change state?
+	printAllDAST();
+
+	//before trying to pull from ready, check if not empty
+
+	// sigwait()
+	// siglongjump to make sure time will start in a new quantum (happens in the signal catcher)
+	//goto next thread
+	sigemptyset(&sigSet); // this will ignore the pending signals
+	sigaddset(&sigSet, SIGVTALRM);
+	sigprocmask(SIG_UNBLOCK, &sigSet, NULL);
+
+	/*cout << "timer values:\nvalue sec: " << timer.it_value.tv_sec <<
+			"\nvalue usec: " << timer.it_value.tv_usec <<
+			"\ninterval sec: " << timer.it_interval.tv_sec <<
+			"\ninterval usec: " << timer.it_interval.tv_usec << endl;*/
+
+
+	if(setitimer(ITIMER_VIRTUAL, &timer, NULL)) // start counting from now
+	{
+		cout << "cannot set timer " << runningThread->getThreadId() << endl;
+		//return FAILED;
+	}
+	cout << "cur thread: " << runningThread->getThreadId() << endl;
+	siglongjmp(runningThread->getEnv(), 1);
+
 }
 
 
@@ -398,8 +425,11 @@ int uthread_terminate(int tid)
 		//TODO ERROR!!!
 		return FAILED;
 	}
+
+	// TODO check termination of thread 0
 	if (tid == MAIN_THREAD)
 	{
+		cout << "success" << endl;
 		freeAll();
 		exit(SUCCESS);
 	}
@@ -408,7 +438,6 @@ int uthread_terminate(int tid)
 
     if(runningThread->getThreadId() == tid)
     {
-        //TODO make manager decision
 		deletedThreadID = runningThread->getThreadId();
 		delete(runningThread);
 		runningThread = nullptr;
@@ -416,19 +445,36 @@ int uthread_terminate(int tid)
 		totalQuantum++;
 		roundRobinAlg();
 	}
+
+	// search for thread in blocked threads vector:
 	auto blockedIt = getThreadIterFromBlockedVec(tid);
-    if(blockedIt != blockedThreads.end())
+    if(deletedThreadID == -1 && blockedIt != blockedThreads.end())
     {
 		deletedThreadID = (*blockedIt)->getThreadId();
 		blockedThreads.erase(blockedIt);
     }
 
+	// search for thread in ready queue threads vector:
 	auto readyIt = getThreadIterFromReadyQueue(tid);
-    if(readyIt != readyQueue.end())
+    if(deletedThreadID == -1 && readyIt != readyQueue.end())
     {
 		deletedThreadID = (*readyIt)->getThreadId();
 		readyQueue.erase(readyIt);
     }
+
+	// search for thread in sleeping threads vector:
+	auto sleepIt = getThreadIterFromSleepingVec(tid);
+	if(deletedThreadID == -1 && sleepIt != sleepingThreads.end())
+	{
+		deletedThreadID = (*sleepIt)->getThreadId();
+		sleepingThreads.erase(sleepIt);
+	}
+
+	if(deletedThreadID == -1)
+	{
+		// TODO add error
+		return FAILED;
+	}
 
     tidHeap.push((const unsigned int &) deletedThreadID);
 
@@ -474,9 +520,11 @@ int uthread_block(int tid)
 
 	if(runningThread->getThreadId() == tid)
 	{
-		blockedThreads.push_back(runningThread);
+		Thread* tempThreadp = runningThread;
+		blockedThreads.push_back(tempThreadp);
+		runningThread = nullptr;
 		// TODO make scheduling decision
-		cout << "block running thread tid : " << runningThread->getThreadId() << endl;
+		cout << "block running thread tid : " << tempThreadp->getThreadId() << endl;
 
 		//unblock the signal
 		sigemptyset(&sigSet); // this will ignore the pending signals
