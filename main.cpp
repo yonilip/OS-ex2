@@ -75,7 +75,7 @@ void r(void)
 		//printf("in f (%d)\n",i);
 		std::cout << "in g " << i << std::endl;
 	}*/
-	uthread_block(2);
+	uthread_terminate(0);
 
 	//uthread_resume(2);
 	while (1){
@@ -94,7 +94,6 @@ void s(void)
 		//printf("in f (%d)\n",i);
 		std::cout << "in g " << i << std::endl;
 	}*/
-	uthread_resume(2);
 
 	//uthread_resume(2);
 	while (1){
@@ -107,8 +106,8 @@ void s(void)
 int main()
 {
 	uthread_init(3000000);
-	uthread_spawn(f);
-	uthread_spawn(g);
+	//uthread_spawn(f);
+	//uthread_spawn(g);
 	uthread_spawn(h);
 	uthread_spawn(r);
 	uthread_spawn(s);

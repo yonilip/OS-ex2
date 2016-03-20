@@ -52,7 +52,7 @@
 
 
 #define SECOND 1000000
-#define MAX_THREAD_NUM 100 //TODO check the number
+#define MAX_THREAD_NUM 100
 #define FAILED -1
 #define SUCCESS 0
 #define MAIN_THREAD 0
@@ -63,11 +63,6 @@
 #include <algorithm>
 #include <functional>
 #include <queue>
-#include <setjmp.h>
-#include <vector>
-#include <stdio.h>
-#include <signal.h>
-#include <sys/time.h>
 #include <iostream>
 
 using namespace std;
@@ -85,25 +80,29 @@ int totalQuantum;
 struct itimerval timer;
 struct sigaction sigAction;
 
-
+//TODO static for all non API funcs
 static void printAllDAST()
 {
 	deque<Thread*>::iterator it1;
 	vector<Thread*>::iterator it2;
 	vector<Thread*>::iterator it3;
 
+	cout << "READY: ";
 	for(it1 = readyQueue.begin() ; it1 != readyQueue.end() ; ++it1)
 	{
-		cout << " , " <<  (*it1)->getThreadId();
+		cout <<  (*it1)->getThreadId() << " , ";
 	}
+	cout << endl << "SLEEPING: ";
 	for(it2 = sleepingThreads.begin() ; it2 != sleepingThreads.end() ; ++it2)
 	{
-		cout << " , " <<  (*it2)->getThreadId();
+		cout << (*it2)->getThreadId()<< " , ";
 	}
+	cout << endl << "BLOCKED: ";
 	for(it3 = blockedThreads.begin() ; it3 != blockedThreads.end() ; ++it3)
 	{
-		cout << " , " <<  (*it3)->getThreadId();
+		cout <<  (*it3)->getThreadId() << " , ";
 	}
+	cout << endl;
 }
 
 
@@ -127,18 +126,21 @@ static void roundRobinAlg()
 	Thread* threadToWake;
 	if (!sleepingThreads.empty())
 	{
-
-
-		for (vector<Thread*>::iterator it = sleepingThreads.begin();
-			 it != sleepingThreads.end(); ++it)
+		vector<Thread*>::iterator it;
+		for (it = sleepingThreads.begin(); it != sleepingThreads.end(); ++it)
 		{
 
 			if ((*it)->getTimeToWake() <= totalQuantum)
 			{
-				threadToWake = *it;
+				cout << "time till wakeup is :" << uthread_get_time_until_wakeup((*it)->getThreadId()) << endl;
+				cout << "total quantommmm :" << uthread_get_total_quantums() << endl;
+				threadToWake = (*it);
 				sleepingThreads.erase(it);
 				readyQueue.push_back(threadToWake);
-				//TODO maybe change state
+				if (sleepingThreads.empty())
+				{
+					break;
+				}
 			}
 		}
 	}
@@ -156,7 +158,6 @@ static void roundRobinAlg()
 		runningThread = readyQueue.front();
 		readyQueue.pop_front();
 	}
-	//TODO change state?
 	printAllDAST();
 
 	//before trying to pull from ready, check if not empty
@@ -199,11 +200,6 @@ static void timerHandler(int sig)
 	cout << "total quantum for this thread is : " <<
 	runningThread->getQuantumCounter() << endl;
 	roundRobinAlg();
-
-	/*sigprocmask(SIG_UNBLOCK, &sigSet, NULL);
-	//todo wait for next signal
-	siglongjmp(runningThread->getEnv(), 1);*/
-
 }
 
 /*
@@ -420,13 +416,12 @@ int uthread_terminate(int tid)
 	 */
 	cout << "In terminate for tid " << tid << endl;
 	sigprocmask(SIG_SETMASK, &sigSet, NULL);
-	if (!validatePositiveTid(tid))
+	if (tid < 0)
 	{
 		//TODO ERROR!!!
 		return FAILED;
 	}
 
-	// TODO check termination of thread 0
 	if (tid == MAIN_THREAD)
 	{
 		cout << "success" << endl;
@@ -451,6 +446,7 @@ int uthread_terminate(int tid)
     if(deletedThreadID == -1 && blockedIt != blockedThreads.end())
     {
 		deletedThreadID = (*blockedIt)->getThreadId();
+		delete(*blockedIt); // TODO if leak try using temp pointer
 		blockedThreads.erase(blockedIt);
     }
 
@@ -459,16 +455,9 @@ int uthread_terminate(int tid)
     if(deletedThreadID == -1 && readyIt != readyQueue.end())
     {
 		deletedThreadID = (*readyIt)->getThreadId();
+		delete(*readyIt);
 		readyQueue.erase(readyIt);
     }
-
-	// search for thread in sleeping threads vector:
-	auto sleepIt = getThreadIterFromSleepingVec(tid);
-	if(deletedThreadID == -1 && sleepIt != sleepingThreads.end())
-	{
-		deletedThreadID = (*sleepIt)->getThreadId();
-		sleepingThreads.erase(sleepIt);
-	}
 
 	if(deletedThreadID == -1)
 	{
@@ -596,7 +585,6 @@ int uthread_resume(int tid)
 	blockedThreads.erase(threadToResume);
 	readyQueue.push_back(tempThread);
     cout << "resume thread with tid :" << (*threadToResume)->getThreadId() << " was added to ready queue" << endl;
-	//TODO change state?
 	//unblock the signal
 	sigprocmask(SIG_UNBLOCK, &sigSet, NULL);
 	return SUCCESS;
@@ -613,7 +601,6 @@ int uthread_resume(int tid)
 */
 int uthread_sleep(int num_quantums)
 {
-	//TODO manager method + thread inner state change
 	sigprocmask(SIG_SETMASK, &sigSet, NULL); //TODO unblock in every return
 	if (num_quantums <= 0)
 	{
@@ -623,7 +610,9 @@ int uthread_sleep(int num_quantums)
 	}
 	runningThread->setTimeTillWakeUp(num_quantums +
 									 uthread_get_total_quantums());
-	sleepingThreads.push_back(runningThread);
+	Thread* tempThread = runningThread;
+	runningThread = nullptr;
+	sleepingThreads.push_back(tempThread);
     cout << "running thread put to sleep till : " << num_quantums +
                                                      uthread_get_total_quantums() << endl;
 

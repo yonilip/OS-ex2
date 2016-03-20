@@ -50,11 +50,8 @@ address_t translate_address(address_t addr)
 Thread::Thread(unsigned int threadId, void (*threadFunction)(void))
 {
     this->threadId = threadId;
-    this->state = Ready;
     timeToWake = 0;
     quantumCounter = 0;
-    //allocatedStack = new char[STACK_SIZE];
-	//allocatedStack = new char[STACK_SIZE];
 
     address_t stackPointer, programCounter;
     stackPointer = (address_t)allocatedStack + STACK_SIZE - sizeof(address_t);
@@ -83,18 +80,6 @@ const unsigned int Thread::getThreadId()
     return threadId;
 }
 
-const State Thread::getState()
-{
-    return state;
-}
-
-void Thread::setState(const State state)
-{
-    this->state = state; // when running inc quantumCounter by 1. check if this will inc here or in move to running func
-    /*
-     * maybe switch statement here for different given states that does stuff such as invoking inc method
-     */
-}
 
 int Thread::getTimeToWake()
 {
@@ -115,8 +100,6 @@ sigjmp_buf& Thread::getEnv()
 {
     return env;
 }
-
-//TODO setSleepTime, state change's func,
 
 // terminated
 void Thread::setTimeTillWakeUp(int numQuantums)

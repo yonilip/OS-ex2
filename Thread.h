@@ -22,17 +22,13 @@ class Thread
 private:
 
     unsigned int threadId;
-    State state; // TODO check if needed
     //TODO check if needed alloction for thread stack
 
     sigjmp_buf env;
 
-    //void sigMaskSet; //TODO change type
     unsigned int quantumCounter; // inc every time this thread is in running state
-    int timeToWake; //TODO change type
+    int timeToWake;
     char allocatedStack[STACK_SIZE];
-	//char* allocatedStack;
-
 
 
 public:
@@ -41,8 +37,6 @@ public:
     ~Thread();
 
     const unsigned int getThreadId();
-    const State getState();
-    void setState(const State state);
 
     int getQuantumCounter();
     int getTimeToWake();
