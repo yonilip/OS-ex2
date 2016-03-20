@@ -69,7 +69,7 @@ Thread::~Thread()
     //TODO should we free something?
 }
 
-const int Thread::getThreadId()
+int Thread::getThreadId()
 {
     return threadId;
 }

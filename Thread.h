@@ -32,7 +32,7 @@ public:
 
     ~Thread();
 
-    const int getThreadId();
+    int getThreadId();
 
     int getQuantumCounter();
     int getTimeToWake();
