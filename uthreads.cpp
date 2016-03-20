@@ -167,7 +167,9 @@ static void timerHandler(int sig)
 	}*/
 	sigprocmask(SIG_SETMASK, &sigSet, NULL);
 	totalQuantum++;
+	runningThread->incrementQuantumCounter();
 	cout << "catch signal, total quantum is : " << totalQuantum << endl;
+	cout << "total quantum for this thread is : " << runningThread->getqQuantumCounter() << endl;
 	roundRobinAlg();
 
 	/*sigprocmask(SIG_UNBLOCK, &sigSet, NULL);
@@ -181,7 +183,7 @@ static void timerHandler(int sig)
  * You may assume that this function is called before any other thread library
  * function, and that it is called exactly once. The input to the function is
  * the length of a quantum in micro-seconds. It is an error to call this
- * function with non-positive quantum_usecs.
+ * function with non-positive quantum_ucatch signal, total quantum is :secs.
  * Return value: On success, return 0. On failure, return -1.
 */
 int uthread_init(int quantum_usecs)
@@ -397,8 +399,6 @@ int uthread_terminate(int tid)
 		exit(SUCCESS);
 	}
 
-	//TODO what happens when terminating running thread? need to block signals!
-
 	int deletedThreadID = -1;
 
     if(runningThread->getThreadId() == tid)
@@ -432,6 +432,7 @@ int uthread_terminate(int tid)
     //unblock the signal
 	sigemptyset(&sigSet); // this will ignore the pending signals
 	sigprocmask(SIG_UNBLOCK, &sigSet, NULL);
+	roundRobinAlg();
 	return SUCCESS;
 }
 
@@ -451,6 +452,11 @@ int uthread_block(int tid)
 	/*
 	 * Only ready and running threads could be blocked!!
 	 */
+
+	if(runningThread->getThreadId() == MAIN_THREAD)
+	{
+
+	}
 	//TODO should we block signals?
 	if (!validatePositiveTid(tid))
 	{

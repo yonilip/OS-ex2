@@ -35,7 +35,8 @@ void g(void)
 		std::cout << "in g " << i << std::endl;
 	}*/
 	while (1){
-		//std::cout << "in g " << i << std::endl;
+		//std::cout << "in g " << i << std	{
+//::endl;
 
 	}
 	uthread_terminate(uthread_get_tid());
@@ -46,6 +47,10 @@ int main()
 	uthread_init(3000000);
 	uthread_spawn(f);
 	uthread_spawn(g);
+	uthread_block(1);
+	uthread_terminate(2);
+
+
 
 
 	/*while (1)
@@ -53,7 +58,6 @@ int main()
 		//std::cout << "in main" << std::endl;
 		//getchar();
 		*//*pause();*//*
-	}*/
 	/*usleep(SECOND);
 	usleep(SECOND);
 	usleep(SECOND);
