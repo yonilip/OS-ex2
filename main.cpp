@@ -75,7 +75,7 @@ void r(void)
 		//printf("in f (%d)\n",i);
 		std::cout << "in g " << i << std::endl;
 	}*/
-	uthread_terminate(0);
+	//uthread_terminate(0);
 
 	//uthread_resume(2);
 	while (1){

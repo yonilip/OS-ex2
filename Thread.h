@@ -10,40 +10,35 @@
 #include <sys/time.h>
 #include <setjmp.h>
 
-
-
 #define STACK_SIZE 4096
 
-
-enum State {Ready, Running, Blocked, Sleeping, Terminated};
 
 class Thread
 {
 private:
 
-    unsigned int threadId;
+    int threadId;
     //TODO check if needed alloction for thread stack
 
     sigjmp_buf env;
 
-    unsigned int quantumCounter; // inc every time this thread is in running state
+    int quantumCounter; // inc every time this thread is in running state
     int timeToWake;
     char allocatedStack[STACK_SIZE];
 
 
 public:
-    Thread(unsigned int threadId, void (*threadFunction)(void));
+    Thread(int threadId, void (*threadFunction)(void));
 
     ~Thread();
 
-    const unsigned int getThreadId();
+    const int getThreadId();
 
     int getQuantumCounter();
     int getTimeToWake();
 
-    void incrementQuantumCounter();
 
-    void resetSleepingTime();
+    void incrementQuantumCounter();
 
     sigjmp_buf& getEnv();
 

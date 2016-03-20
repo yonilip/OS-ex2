@@ -47,7 +47,7 @@ address_t translate_address(address_t addr)
 
 #include "Thread.h"
 
-Thread::Thread(unsigned int threadId, void (*threadFunction)(void))
+Thread::Thread(int threadId, void (*threadFunction)(void))
 {
     this->threadId = threadId;
     timeToWake = 0;
@@ -62,20 +62,14 @@ Thread::Thread(unsigned int threadId, void (*threadFunction)(void))
     env->__jmpbuf[JB_PC] = translate_address(programCounter);
     sigemptyset(&env->__saved_mask);
 
-    /**
-     * timer shit follows
-     */
-
-
 }
 
 Thread::~Thread()
 {
     //TODO should we free something?
-   // delete(this->allocatedStack);
 }
 
-const unsigned int Thread::getThreadId()
+const int Thread::getThreadId()
 {
     return threadId;
 }
@@ -91,17 +85,11 @@ void Thread::incrementQuantumCounter()
     quantumCounter++;
 }
 
-void Thread::resetSleepingTime()
-{
-    timeToWake = 0;
-}
-
 sigjmp_buf& Thread::getEnv()
 {
     return env;
 }
 
-// terminated
 void Thread::setTimeTillWakeUp(int numQuantums)
 {
     this->timeToWake = numQuantums;
