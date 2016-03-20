@@ -18,6 +18,7 @@ void f(void)
 		//printf("in f (%d)\n",i);
 		std::cout << "in f " << i << std::endl;
 	}*/
+	//uthread_block(2);
 	while (1)
 	{
 
@@ -42,13 +43,32 @@ void g(void)
 	uthread_terminate(uthread_get_tid());
 }
 
+void h(void)
+{
+	int i = 0;
+	/*while(1){
+		++i;
+		//printf("in f (%d)\n",i);
+		std::cout << "in g " << i << std::endl;
+	}*/
+	//uthread_resume(2);
+	while (1){
+		//std::cout << "in g " << i << std	{
+//::endl;
+
+	}
+	uthread_terminate(uthread_get_tid());
+}
+
 int main()
 {
 	uthread_init(3000000);
 	uthread_spawn(f);
 	uthread_spawn(g);
-	uthread_block(1);
-	uthread_terminate(2);
+	uthread_spawn(h);
+	//uthread_block(1);
+	//uthread_resume(1);
+	//uthread_terminate(3);
 
 
 

@@ -87,7 +87,7 @@ struct sigaction sigAction;
 
 static void roundRobinAlg()
 {
-	//sigprocmask(SIG_SETMASK, &sigSet, NULL);
+	sigprocmask(SIG_SETMASK, &sigSet, NULL);
 	while(true)
 	{
 		if (runningThread != nullptr)
@@ -459,32 +459,42 @@ int uthread_block(int tid)
 	 */
 
 	sigprocmask(SIG_SETMASK, &sigSet, NULL); //TODO unblock in every return
-	if(runningThread->getThreadId() == MAIN_THREAD)
-	{
-
-	}
-	//TODO should we block signals?
 	if (!validatePositiveTid(tid))
 	{
+		sigprocmask(SIG_UNBLOCK, &sigSet, NULL);
 		return FAILED; // TODO err
 	}
-	deque<Thread *>::iterator threadIterToBlock;
-	//threadIterToBlock = getThreadFromDAST(tid);
+	if(tid == MAIN_THREAD)
+	{
+		//TODO what now?
+		sigprocmask(SIG_UNBLOCK, &sigSet, NULL);
+		return FAILED; //TODO err?
+	}
+
+
 	if(runningThread->getThreadId() == tid)
 	{
 		blockedThreads.push_back(runningThread);
 		// TODO make scheduling decision
-		cout << "block thread with pid : " << (*threadIterToBlock)->getThreadId() << endl;
+		cout << "block running thread tid : " << runningThread->getThreadId() << endl;
+
+		//unblock the signal
+		sigemptyset(&sigSet); // this will ignore the pending signals
+		sigprocmask(SIG_UNBLOCK, &sigSet, NULL);
+		roundRobinAlg();
 		return SUCCESS;
 	}
 
+	deque<Thread *>::iterator threadIterToBlock;
 	threadIterToBlock = getThreadIterFromReadyQueue(tid); // method gets thread iter from queue
 
 	if (threadIterToBlock == readyQueue.end())
 	{
-		cout << "block thread with pid : " << (*threadIterToBlock)->getThreadId() << endl;
+		sigprocmask(SIG_UNBLOCK, &sigSet, NULL);
 		return SUCCESS;
 	}
+	cout << "block thread with pid : " << (*threadIterToBlock)->getThreadId() << endl;
+
 	Thread* tempThreadp = (*threadIterToBlock);
 	readyQueue.erase(threadIterToBlock);
 	blockedThreads.push_back(tempThreadp);
@@ -537,7 +547,7 @@ int uthread_resume(int tid)
 	Thread* tempThread = *threadToResume;
 	blockedThreads.erase(threadToResume);
 	readyQueue.push_back(tempThread);
-    cout << "thread with tid :" << (*threadToResume)->getThreadId() << "wad added to ready queue" << endl;
+    cout << "resume thread with tid :" << (*threadToResume)->getThreadId() << " was added to ready queue" << endl;
 	//TODO change state?
 	//unblock the signal
 	sigprocmask(SIG_UNBLOCK, &sigSet, NULL);
