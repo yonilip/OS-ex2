@@ -44,7 +44,7 @@ public:
     const State getState();
     void setState(const State state);
 
-    int getqQuantumCounter();
+    int getQuantumCounter();
     int getTimeToWake();
 
     void incrementQuantumCounter();
