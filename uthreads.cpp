@@ -397,7 +397,6 @@ vector<Thread *>::iterator getThreadIterFromSleepingVec(int tid)
 
 void freeAll()
 {
-
 	blockedThreads.clear();
 	sleepingThreads.clear();
 	readyQueue.clear();
@@ -438,11 +437,10 @@ int uthread_terminate(int tid)
 	blockSignals();
 	if (tid < 0)
 	{
-		cerr << "thread library error: negative tid" << endl;
+		cerr << "thread library error: invalid tid" << endl;
 		unblockSignal();
 		return FAILED;
 	}
-
 	if (tid == MAIN_THREAD)
 	{
 		freeAll();
@@ -509,7 +507,7 @@ int uthread_terminate(int tid)
 int uthread_block(int tid)
 {
 	blockSignals();
-	if (!validatePositiveTid(tid))
+	if (tid < 0)
 	{
 		cerr << "thread library error: invalid tid" << endl;
 		unblockSignal();
@@ -579,7 +577,7 @@ int uthread_block(int tid)
 int uthread_resume(int tid)
 {
 	blockSignals();
-	if (!validatePositiveTid(tid))
+	if (tid < 0)
 	{
 		cerr << "thread library error: negative tid" << endl;
 		unblockSignal();
@@ -665,7 +663,7 @@ int uthread_sleep(int num_quantums)
 int uthread_get_time_until_wakeup(int tid)
 {
 	blockSignals();
-	if (!validatePositiveTid(tid))
+	if (tid < 0)
 	{
 		cerr << "thread library error: negative tid" << endl;
 		unblockSignal();
@@ -736,30 +734,40 @@ int uthread_get_total_quantums()
 */
 int uthread_get_quantums(int tid)
 {
-	deque<Thread*>::iterator it1;
-	vector<Thread*>::iterator it2, it3;
+	blockSignals();
 	if (tid < 0)
 	{
-		//TODO BAD
+		cerr << "thread library error: negative tid" << endl;
+		unblockSignal();
+		return FAILED;
 	}
+
+	deque<Thread*>::iterator it1;
+	vector<Thread*>::iterator it2, it3;
+
 	if (runningThread->getThreadId() == tid)
 	{
+		unblockSignal();
 		return runningThread->getQuantumCounter();
 	}
 	else if ((it1 = getThreadIterFromReadyQueue(tid)) != readyQueue.end())
 	{
+		unblockSignal();
 		return (*it1)->getQuantumCounter();
 	}
 	else if ((it2 = getThreadIterFromSleepingVec(tid)) != sleepingThreads.end())
 	{
+		unblockSignal();
 		return (*it2)->getQuantumCounter();
 	}
 	else if ((it3 = getThreadIterFromBlockedVec(tid)) != blockedThreads.end())
 	{
+		unblockSignal();
 		return (*it3)->getQuantumCounter();
 	}
 	else
 	{
-		return -1;
+		unblockSignal();
+		return FAILED;
 	}
 }
