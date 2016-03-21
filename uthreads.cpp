@@ -198,7 +198,8 @@ void roundRobinAlg()
 		cerr << "system error: cannot set timer" << endl;
 		exit(1);
 	}
-
+	//totalQuantum++;
+	runningThread->incrementQuantumCounter();
 	siglongjmp(runningThread->getEnv(), 1);
 }
 
@@ -206,7 +207,10 @@ void timerHandler(int sig)
 {
 	blockSignals();
 	totalQuantum++;
-	runningThread->incrementQuantumCounter();
+	if (runningThread != nullptr)
+	{
+		//runningThread->incrementQuantumCounter();
+	}
 	roundRobinAlg();
 }
 
@@ -294,7 +298,7 @@ int uthread_init(int quantum_usecs)
 int uthread_spawn(void (*f)(void))
 {
 	blockSignals();
-	if (readyQueue.size() < MAX_THREAD_NUM)
+	if ((readyQueue.size() + sleepingThreads.size() + blockedThreads.size() + 1) < MAX_THREAD_NUM)
 	{
 		int newTid = tidHeap.top();
 		tidHeap.pop();
@@ -348,7 +352,7 @@ deque<Thread *>::iterator getThreadIterFromReadyQueue(int tid)
 			}
 		}
 	}
-	return it;
+	return readyQueue.end();
 }
 
 /**
@@ -523,6 +527,7 @@ int uthread_block(int tid)
 
 	if(runningThread->getThreadId() == tid)
 	{
+		//runningThread->incrementQuantumCounter();
 		Thread* tempThreadp = runningThread;
 		blockedThreads.push_back(tempThreadp);
 		runningThread = nullptr;
@@ -619,7 +624,7 @@ int uthread_resume(int tid)
 		unblockSignal();
 		return SUCCESS;
 	}
-
+	cerr << "thread library error: thread doesnt exist" << endl;
 	unblockSignal();
 	return FAILED;
 }
@@ -767,6 +772,7 @@ int uthread_get_quantums(int tid)
 	}
 	else
 	{
+		cerr << "thread library error: thread doesnt exist" << endl;
 		unblockSignal();
 		return FAILED;
 	}

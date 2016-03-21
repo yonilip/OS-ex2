@@ -51,7 +51,7 @@ Thread::Thread(int threadId, void (*threadFunction)(void))
 {
     this->threadId = threadId;
     timeToWake = 0;
-    quantumCounter = 1;
+    quantumCounter = 0;
 
     address_t stackPointer, programCounter;
     stackPointer = (address_t)allocatedStack + STACK_SIZE - sizeof(address_t);
