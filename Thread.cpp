@@ -51,12 +51,12 @@ Thread::Thread(int threadId, void (*threadFunction)(void))
 {
     this->threadId = threadId;
     timeToWake = 0;
-    quantumCounter = 0;
+    quantumCounter = 1;
 
     address_t stackPointer, programCounter;
     stackPointer = (address_t)allocatedStack + STACK_SIZE - sizeof(address_t);
     programCounter = (address_t)threadFunction;
-    sigsetjmp(env, 1); //TODO what is this 1 savemask thing?
+    sigsetjmp(env, 1);
 
     env->__jmpbuf[JB_SP] = translate_address(stackPointer);
     env->__jmpbuf[JB_PC] = translate_address(programCounter);

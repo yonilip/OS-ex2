@@ -80,12 +80,13 @@ struct itimerval timer;
 struct sigaction sigAction;
 
 //TODO static for all non API funcs
-/*static void printAllDAST()
+void printAllDAST()
 {
 	deque<Thread*>::iterator it1;
 	vector<Thread*>::iterator it2;
 	vector<Thread*>::iterator it3;
 
+	cout << "Running: " << runningThread->getThreadId() << endl;
 	cout << "READY: ";
 	for(it1 = readyQueue.begin() ; it1 != readyQueue.end() ; ++it1)
 	{
@@ -102,7 +103,7 @@ struct sigaction sigAction;
 		cout <<  (*it3)->getThreadId() << " , ";
 	}
 	cout << endl;
-}*/
+}
 
 void blockSignals()
 {
@@ -132,7 +133,7 @@ void unblockSignals()
 	}
 }
 
-static void roundRobinAlg()
+void roundRobinAlg()
 {
 
 	blockSignals();
@@ -192,10 +193,11 @@ static void roundRobinAlg()
 	}
 
 	//cout << "cur thread: " << runningThread->getThreadId() << endl;
+	//cout << "total quantum: " << totalQuantum << endl;
 	siglongjmp(runningThread->getEnv(), 1);
 }
 
-static void timerHandler(int sig)
+void timerHandler(int sig)
 {
 	if(sigprocmask(SIG_SETMASK, &sigSet, NULL))
 	{
@@ -203,7 +205,7 @@ static void timerHandler(int sig)
 		exit(1);
 	}
 	totalQuantum++;
-	//runningThread->incrementQuantumCounter();
+	runningThread->incrementQuantumCounter();
 
 //	cout << "catch signal, total quantum is : " << totalQuantum << endl;
 //	cout << "total quantum for this thread is : " <<
@@ -290,7 +292,7 @@ int uthread_init(int quantum_usecs)
 	}
 
 	runningThread = readyQueue.front();
-	runningThread->incrementQuantumCounter();
+	//runningThread->incrementQuantumCounter();
 	readyQueue.pop_back();
 
 	roundRobinAlg();
@@ -324,11 +326,6 @@ int uthread_spawn(void (*f)(void))
 		//cout << "init new thread with tid :" << newTid << endl;
 		Thread* newThread = new Thread(newTid, f);
 
-		if(sigemptyset(&newThread->getEnv()->__saved_mask)) // TODO what is going on from here on?
-		{
-			cerr << "system error: cannot call sigemptyset" << endl;
-			exit(1);
-		}
 		readyQueue.push_back(newThread);
 
 		if(sigprocmask(SIG_UNBLOCK, &sigSet, NULL))
@@ -342,7 +339,7 @@ int uthread_spawn(void (*f)(void))
 	else
 	{
 		cerr << "thread library error: queque is full, cannot spawn "
-						"additional threads" << endl;
+				"additional threads" << endl;
 		sigprocmask(SIG_UNBLOCK, &sigSet, NULL);
 		return FAILED;
 	}
@@ -351,7 +348,7 @@ int uthread_spawn(void (*f)(void))
 /**
  * TODO DOC
  */
-static int validatePositiveTid(int tid)
+int validatePositiveTid(int tid)
 {
 	if(tid > 0)
 	{
@@ -364,7 +361,7 @@ static int validatePositiveTid(int tid)
 /**
  * TODO DOC
  */
-static deque<Thread *>::iterator getThreadIterFromReadyQueue(int tid)
+deque<Thread *>::iterator getThreadIterFromReadyQueue(int tid)
 {
 	if (!validatePositiveTid(tid))
 	{
@@ -388,7 +385,7 @@ static deque<Thread *>::iterator getThreadIterFromReadyQueue(int tid)
 }
 
 
-static vector<Thread *>::iterator getThreadIterFromBlockedVec(int tid)
+vector<Thread *>::iterator getThreadIterFromBlockedVec(int tid)
 {
 	if (!validatePositiveTid(tid))
 	{
@@ -409,7 +406,7 @@ static vector<Thread *>::iterator getThreadIterFromBlockedVec(int tid)
  * TODO DOC
  */
 
-static vector<Thread *>::iterator getThreadIterFromSleepingVec(int tid)
+vector<Thread *>::iterator getThreadIterFromSleepingVec(int tid)
 {
 	if (!validatePositiveTid(tid))
 	{
@@ -432,7 +429,7 @@ static vector<Thread *>::iterator getThreadIterFromSleepingVec(int tid)
 	return sleepingThreads.end();
 }
 
-static void freeAll()
+void freeAll()
 {
 
 	blockedThreads.clear();
@@ -496,8 +493,8 @@ int uthread_terminate(int tid)
 
 	int deletedThreadID = -1;
 
-    if(runningThread->getThreadId() == tid)
-    {
+	if(runningThread->getThreadId() == tid)
+	{
 		deletedThreadID = runningThread->getThreadId();
 		delete(runningThread);
 		runningThread = nullptr;
@@ -508,21 +505,21 @@ int uthread_terminate(int tid)
 
 	// search for thread in blocked threads vector:
 	auto blockedIt = getThreadIterFromBlockedVec(tid);
-    if(deletedThreadID == -1 && blockedIt != blockedThreads.end())
-    {
+	if(deletedThreadID == -1 && blockedIt != blockedThreads.end())
+	{
 		deletedThreadID = (*blockedIt)->getThreadId();
 		delete(*blockedIt); // TODO if leak try using temp pointer
 		blockedThreads.erase(blockedIt);
-    }
+	}
 
 	// search for thread in ready queue threads vector:
 	auto readyIt = getThreadIterFromReadyQueue(tid);
-    if(deletedThreadID == -1 && readyIt != readyQueue.end())
-    {
+	if(deletedThreadID == -1 && readyIt != readyQueue.end())
+	{
 		deletedThreadID = (*readyIt)->getThreadId();
 		delete(*readyIt);
 		readyQueue.erase(readyIt);
-    }
+	}
 
 	if(deletedThreadID == -1)
 	{
@@ -530,11 +527,11 @@ int uthread_terminate(int tid)
 		return FAILED;
 	}
 
-    tidHeap.push(deletedThreadID);
+	tidHeap.push(deletedThreadID);
 
 	cout << "delete thread with tid : " << deletedThreadID << endl;
 
-    //unblock the signal
+	//unblock the signal
 	if(sigemptyset(&sigSet))
 	{
 		cerr << "system error: cannot call sigemptyset" << endl;
@@ -610,9 +607,34 @@ int uthread_block(int tid)
 			exit(1);
 		}
 		totalQuantum++;
+		//TODO inc running quantum
 		roundRobinAlg();
 		return SUCCESS;
 	}
+	vector<Thread*>::iterator isThreadBlockedOrSleeping;
+	isThreadBlockedOrSleeping = getThreadIterFromBlockedVec(tid);
+	if(isThreadBlockedOrSleeping != blockedThreads.end())
+	{
+		if(sigprocmask(SIG_UNBLOCK, &sigSet, NULL))
+		{
+			cerr << "system error: cannot call sigprocmask" << endl;
+			exit(1);
+		}
+		return SUCCESS;
+	}
+
+	isThreadBlockedOrSleeping = getThreadIterFromSleepingVec(tid);
+	if (isThreadBlockedOrSleeping != sleepingThreads.end())
+	{
+		if(sigprocmask(SIG_UNBLOCK, &sigSet, NULL))
+		{
+			cerr << "system error: cannot call sigprocmask" << endl;
+			exit(1);
+		}
+		return SUCCESS;
+	}
+
+
 
 	deque<Thread *>::iterator threadIterToBlock;
 	threadIterToBlock = getThreadIterFromReadyQueue(tid); // method gets thread iter from queue
@@ -642,7 +664,7 @@ int uthread_block(int tid)
 
 
 // TODO is this function nedded?
-static bool isTidInitialized(int tid)
+bool isTidInitialized(int tid)
 {
 	if (tid < 0)
 	{
@@ -681,6 +703,11 @@ int uthread_resume(int tid)
 
 	if (threadToResume == blockedThreads.end())
 	{
+		if(sigprocmask(SIG_UNBLOCK, &sigSet, NULL))
+		{
+			cerr << "system error: cannot call sigprocmask" << endl;
+			exit(1);
+		}
 		return SUCCESS;
 	}
 
@@ -766,13 +793,13 @@ int uthread_get_time_until_wakeup(int tid)
 		return 0;
 	}
 
-    if(getThreadIterFromSleepingVec(tid) != sleepingThreads.end())
-    {
-        Thread * sleepingThread = (*getThreadIterFromSleepingVec(tid));
-        //cout << "this thread will wake up at :  " << sleepingThread->getTimeToWake() << endl;
-        return (sleepingThread->getTimeToWake());
-    }
-    //cout << "thread with tid : " << tid << "does not exist: ERROR" << endl;
+	if(getThreadIterFromSleepingVec(tid) != sleepingThreads.end())
+	{
+		Thread * sleepingThread = (*getThreadIterFromSleepingVec(tid));
+		//cout << "this thread will wake up at :  " << sleepingThread->getTimeToWake() << endl;
+		return (sleepingThread->getTimeToWake());
+	}
+	//cout << "thread with tid : " << tid << "does not exist: ERROR" << endl;
 	cerr << "thread library error: tid doesnt exist" << endl;
 	return FAILED;
 }
