@@ -80,7 +80,7 @@ struct itimerval timer;
 struct sigaction sigAction;
 
 //TODO static for all non API funcs
-static void printAllDAST()
+/*static void printAllDAST()
 {
 	deque<Thread*>::iterator it1;
 	vector<Thread*>::iterator it2;
@@ -102,18 +102,46 @@ static void printAllDAST()
 		cout <<  (*it3)->getThreadId() << " , ";
 	}
 	cout << endl;
+}*/
+
+void blockSignals()
+{
+	if(sigprocmask(SIG_SETMASK, &sigSet, NULL)) //TODO replace this in all places where blocking signals
+	{
+		cerr << "system error: cannot call sigprogmask " << endl;
+		exit(1);
+	}
+}
+
+void unblockSignals()
+{
+	if(sigemptyset(&sigSet))
+	{
+		cerr << "system error: cannot call sigemptyset " << endl;
+		exit(1);
+	}; // this will ignore the pending signals
+	if(sigaddset(&sigSet, SIGVTALRM))
+	{
+		cerr << "system error: cannot add signal to set" << endl;
+		exit(1);
+	}
+	if(sigprocmask(SIG_UNBLOCK, &sigSet, NULL))
+	{
+		cerr << "system error: cannot call sigprogmask " << endl;
+		exit(1);
+	}
 }
 
 static void roundRobinAlg()
 {
 
-	sigprocmask(SIG_SETMASK, &sigSet, NULL);
+	blockSignals();
 	if (runningThread != nullptr)
 	{
 		int retVal = sigsetjmp(runningThread->getEnv(), 1);
 		if (retVal != 0)
 		{
-			//TODO stop blocking signals!
+			unblockSignals();
 			return;
 		}
 	}
@@ -154,21 +182,7 @@ static void roundRobinAlg()
 	//printAllDAST();
 	//runningThread->incrementQuantumCounter();
 
-	if(sigemptyset(&sigSet))
-	{
-		cerr << "system error: cannot call sigemptyset " << endl;
-		exit(1);
-	}; // this will ignore the pending signals
-	if(sigaddset(&sigSet, SIGVTALRM))
-	{
-		cerr << "system error: cannot add signal to set" << endl;
-		exit(1);
-	}
-	if(sigprocmask(SIG_UNBLOCK, &sigSet, NULL))
-	{
-		cerr << "system error: cannot call sigprogmask " << endl;
-		exit(1);
-	}
+	unblockSignals();
 
 	if(setitimer(ITIMER_VIRTUAL, &timer, NULL)) // start counting from now
 	{
@@ -310,7 +324,7 @@ int uthread_spawn(void (*f)(void))
 		//cout << "init new thread with tid :" << newTid << endl;
 		Thread* newThread = new Thread(newTid, f);
 
-		if(sigemptyset(&newThread->getEnv()->__saved_mask))
+		if(sigemptyset(&newThread->getEnv()->__saved_mask)) // TODO what is going on from here on?
 		{
 			cerr << "system error: cannot call sigemptyset" << endl;
 			exit(1);
