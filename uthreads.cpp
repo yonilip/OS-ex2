@@ -107,7 +107,8 @@ void printAllDAST()
 
 void blockSignals()
 {
-	if(sigprocmask(SIG_SETMASK, &sigSet, NULL)) //TODO replace this in all places where blocking signals
+	if(sigprocmask(SIG_SETMASK, &sigSet, NULL)) //TODO replace this in all
+		// places where blocking signals
 	{
 		cerr << "system error: cannot call sigprogmask " << endl;
 		exit(1);
@@ -258,11 +259,13 @@ int uthread_init(int quantum_usecs)
 	// initial timer for the first interval
 
 	timer.it_value.tv_sec = (quantum_usecs/SECOND);
-	timer.it_value.tv_usec = (quantum_usecs % SECOND);   //quantum_usecs - (quantum_usecs/SECOND);
+	timer.it_value.tv_usec = (quantum_usecs % SECOND);
+	//quantum_usecs - (quantum_usecs/SECOND);
 
 	// initial timer for rest of iterations
 	timer.it_interval.tv_sec = (quantum_usecs/SECOND);
-	timer.it_interval.tv_usec = (quantum_usecs % SECOND);           //quantum_usecs - (quantum_usecs/SECOND);
+	timer.it_interval.tv_usec = (quantum_usecs % SECOND);
+	//quantum_usecs - (quantum_usecs/SECOND);
 
 	if (sigaction(SIGVTALRM, &sigAction, NULL) < 0)
 	{
@@ -294,7 +297,8 @@ int uthread_init(int quantum_usecs)
 int uthread_spawn(void (*f)(void))
 {
 	blockSignals();
-	if ((readyQueue.size() + sleepingThreads.size() + blockedThreads.size() + 1) < MAX_THREAD_NUM)
+	if ((readyQueue.size() + sleepingThreads.size() +
+			blockedThreads.size() + 1) < MAX_THREAD_NUM)
 	{
 		int newTid = tidHeap.top();
 		tidHeap.pop();
@@ -551,7 +555,8 @@ int uthread_block(int tid)
 	}
 
 	deque<Thread *>::iterator threadIterToBlock;
-	threadIterToBlock = getThreadIterFromReadyQueue(tid); // method gets thread iter from queue
+	threadIterToBlock = getThreadIterFromReadyQueue(tid);
+	// method gets thread iter from queue
 
 	if (threadIterToBlock != readyQueue.end())
 	{
@@ -744,7 +749,8 @@ int uthread_get_total_quantums()
  * increase this value by 1 (so if the thread with ID tid is in RUNNING state
  * when this function is called, include also the current quantum). If no
  * thread with ID tid exists it is considered as an error.
- * Return value: On success, return the number of quantums of the thread with ID tid. On failure, return -1.
+ * Return value: On success, return the number of quantums of the thread with
+ * ID tid. On failure, return -1.
 */
 int uthread_get_quantums(int tid)
 {
@@ -769,7 +775,8 @@ int uthread_get_quantums(int tid)
 		unblockSignal();
 		return (*it1)->getQuantumCounter();
 	}
-	else if ((it2 = getThreadIterFromSleepingVec(tid)) != sleepingThreads.end())
+	else if ((it2 = getThreadIterFromSleepingVec(tid)) !=
+			sleepingThreads.end())
 	{
 		unblockSignal();
 		return (*it2)->getQuantumCounter();
