@@ -54,12 +54,13 @@ Thread::Thread(int threadId, void (*threadFunction)(void))
     address_t stackPointer, programCounter;
     stackPointer = (address_t)allocatedStack + STACK_SIZE - sizeof(address_t);
     programCounter = (address_t)threadFunction;
-    sigsetjmp(env, 1);
-
-    env->__jmpbuf[JB_SP] = translate_address(stackPointer);
-    env->__jmpbuf[JB_PC] = translate_address(programCounter);
-    sigemptyset(&env->__saved_mask);
-
+    int retval = sigsetjmp(env, 1);
+    if(retval == 0)
+    {
+        env->__jmpbuf[JB_SP] = translate_address(stackPointer);
+        env->__jmpbuf[JB_PC] = translate_address(programCounter);
+        sigemptyset(&env->__saved_mask);
+    }
 }
 
 Thread::~Thread()

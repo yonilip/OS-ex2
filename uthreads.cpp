@@ -254,7 +254,8 @@ int uthread_spawn(void (*f)(void))
 		}
 		catch (exception e)
 		{
-			cerr << "thread library error: cannot aloocate memory for thread" << endl;
+			cerr << "thread library error: cannot aloocate memory for thread"
+			<< endl;
 			unblockSignal();
 			return FAILED;
 		}

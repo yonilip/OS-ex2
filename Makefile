@@ -3,7 +3,7 @@ CFLAGS = -std=c++11 -Wextra -Wall
 TAR = tar
 TARFLAGS = cvf
 TARNAME = ex2.tar
-TARSRCS = uthreads.cpp uthreads.h Thread.cpp Thread.h Makefile README
+TARSRCS = uthreads.cpp Thread.cpp Thread.h Makefile README
 
 all: uthreads.o
 	ar rcs libuthreads.a uthreads.o Thread.o

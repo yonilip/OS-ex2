@@ -26,20 +26,44 @@ private:
 
 
 public:
+    /**
+     * c-tor for thread instance
+     */
     Thread(int threadId, void (*threadFunction)(void));
 
+    /**
+     * Detor
+     */
     ~Thread();
 
+    /**
+     *  return thread id
+     */
     int getThreadId();
 
+    /**
+     * return thread quantum-counter
+     */
     int getQuantumCounter();
+
+    /**
+     * return times remains till wake up
+     */
     int getTimeToWake();
 
-
+    /**
+     * increase quantum counter
+     */
     void incrementQuantumCounter();
 
+    /**
+     * return thread enviement
+     */
     sigjmp_buf& getEnv();
 
+    /**
+     *  set the time till wake up for thread
+     */
     void setTimeTillWakeUp(int numQuantums);
 
 };
