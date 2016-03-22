@@ -1,124 +1,83 @@
 yonilipman, danielle.kut
 Yonatan Lipman (305629750), Danielle Kutner (204094460)
-EX: 1
+EX: 2
 
 FILES:
 README -- this file
-osm.cpp -- implementation of the library that is to be made with the makefile
+uthreads.cpp -- implementation of the thread library
+Thread.cpp -- implementation of the Thread class methods
+Thread.h -- Thread Class header
 
 REMARKS:
 None.
 
 ANSWERS:
 
-TASK 1:
-Run without arg:
-Tries to run the program normally, and reaches a problem when noticing that
-there was no file descriptor opened since there was no given argument and
-writes that there was no given argument and terminates the program with
-closing and releasing all resources.
+1) Google Chrome creates a new process to have each tab run independently
+   from each other, such that if one process is blocked or runs into some
+   problem, the other tabs (processes) wont be affected by it.
+   We can achieve a similar benefit by running all of the tabs on one process,
+   but splitting them into independent kernel level threads, such that the
+   operating system would manage the threads context switch and if one thread
+   (tab) runs into some problem, it would not affect the other threads.
+   Another benefit that process share with kernel level threads is that
+   both can enjoy the utilization of multi-core Processors.
 
-Run with arg:
+   Advantages of creating new process (instead of kernel level threads):
+   * Processes have more resources (e.g memory)
+   * Processes can create multi-threads inside each process in order to
+     calculate tasks faster
+   * Stability - Failure in one process wont lead to failure in other processes
 
-Description of WhatIDo:
-creates the directory "Welcome/To" and opens a new write_only pFile
-named "OS" and writes a message into the pFile.
-then closes the fd that refers to "Welcome/To/OS",
-deletes the pFile and the encapsulating directories.
-
-Description of system calls that are made by the program:
-
-mkdir
-Params: pathname and mode(linux permissions)
-Returns: 0 if successful, else -1.
-Description: attempts to create a directory named by pathname.
-WhatIDo: mkdir is called twice, creating successfully 2 directories
-named: Welcome, Welcome/To, both define permissions as 775
-(owner and group all priviliges, other has read and execute permissions).
-
-open
-Params: pathname, flags, mode(linux permissions)
-Returns: new lowest available non negative int
-pFile descriptor(an entry in the system-wide table of
-open files - abbreviated to fd) if successful, else -1.
-Description: Given a pathname, returns a fd for use in subsequent system calls.
-WhatIDo: opens a new fd in the directory that was created in the
-last mkdir call, the flags indicate that the fd is a new
-pFile(noted by O_CREAT and O_TRUNC) that we will
-only write into, and the mode gives everyone read-write permissions.
-the returned fd is 3.
+   Disadvantages of creating new process (instead of kernel level threads):
+   * Requires more resources than threads
+   * Process Context switch has larger overhead than thread context switch.
 
 
-fstat
-Params: filedes, buf(pointer to a struct of type stat)
-Returns: 0 if successful, else -1.
-Description: returns information about the pFile represented by the fd.
-WhatIDo: fstat is called successfully on the fd 3, and initializes the buf
-structs fields as needed.
+2) The shell's kill command invokes the kill() system call, which sends
+   signal(s) to the process referenced by its PID via interrupt made by the
+   operating system.
+   The signals that could be send by the kill command are:
+    SIGTERM (default signal sent)
+    SIGKILL
+   we can choose which would be sent by adding a flag to the kill command.
+   SIGKILL cannot be caught by a processes signal handler, such that this
+   signal will kill the process without any consideration regarding the
+   processes state.
+   SIGTERM on the other hand, can be intercepted by a processes signal handler
+   which could invoke useful cleanup operation such as saving information into
+   a file), thus is more common in order to allow processes to handle their
+   forced termination.
 
+   Writing on the keyboard invokes constant interrupts which interprets what is
+   typed to the shell (process). when the kill command is invoked in the shell,
+   it invokes the system call kill() as mentioned above.
+   By simply using kill without flags, sends the SIGTERM signal which allows
+   the application to handle its forced termination as mentioned above.
 
-write
-Params: filedes, pointer to buf, count(amount of bytes to write).
-Returns: num of bytes written if successful, else -1.
-Description: writes up to count bytes to the fd from the buf.
-WhatIDo: successfully writes 184 bytes into fd 3, which is a string message to
-the students and a newline for the name of the user login name, then the given
-argument.
+3) The difference between 'real' and 'virtual' time, is that 'real' time is
+   continuous and is counted in every process, while 'virtual' time is
+   counted only in the duration of the process's active computation time.
+   'Real' time example: the OS's clock application utilizes a 'real' time
+    timer the keeps counting no which process is currently active.
+    'Virtual' time example: when we want to mesaure the runtime of a single
+    process in order to analyze its own running time. e.g the round robin
+    scheduling algorithm utilizes virtual time in order to give each thread
+    a uniform running time.
 
+4) a) Fork duplicates the parent process's environment into the child process
+      up until the command where fork was invoked.
+      Fork uses Copy on Write, such that each process (parent and children)
+      share the same memory resources(stack, heap and global variables) until
+      one of them writes onto the requested memory, invoking an independent
+      copy of the memory. from this moment their resources arent shared and
+      they remain independent.
 
-close
-Params: filedes
-Returns: 0 if successful, else -1.
-Description: closes the fd and frees the fd number for later use.
-WhatIDo: releases the fd 3 successfully.
+   b) Pipe is an inter-process communication channel, which receives 2 fd's
+      that act as read and write, and allows to write from one process into
+      another process which will read the data. By default, the fd's are
+      STDIN and STDOUT, but this could be changed for piping between
+      different independent processes. It is needed because different processes
+      dont share the same memory and this allows them to communicate with each
+      other.
 
-unlink
-Params: pathname
-Returns: 0 if successful, else -1.
-Description: deletes the given name from the pFile system.
-if there are still fd's (in this or other processes) for the unlinked name,
-the pFile will remain in existance until all relevent fd's are closed.
-WhatIDo: releases the path Welcome/To/OS and deletes the pFile OS.
-
-rmdir
-Params: pathname
-Returns: 0 if successful, else -1.
-Description: deletes the directory which must be empty (all files in it must
-be unlinked and closed)
-WhatIDo: deletes dir "To" in "Welcome/To" and deletes dir "Welcome"
-successfully.
-
-exit_group
-Params: status
-Returns: void
-Description: terminates the proccess and all threads in it.
-
-
-TASK 2:
-The functions are written in a manner of measuring the times of certain
-operations over a loop of given iterations, averaging the time it took,
-taking in account the time in seconds and in
-microseconds and converts the total to nanoseconds.
-
-The arithmetic operations are simple, and several are done in each iteration
-of the loop as in style of loop unrolling.
-
-All the other functions work in a similar manner with the exception of the
-disk operation, which opens a newly created file and closes it in
-each iteration.
-
-For the disk operations, in order for having an accurate measurement while
-using the flag O_DIRECT, we assign a msg buffer of size 512 bytes and copy the
-message that is to be written to the file to the msg buffer,
-then we create a file in the /tmp/
-directory with flags that say the following:
-create the file, truncate the file, open in write only, process in
-a synchronous way and access to the disk is directly done while writing.
-then in every iteration, we use the write system call to write the msg in the
-buffer to the file.
-after the iterations, we unlink the file and close it thus deleting the file
-from the directory. We checked this in strace to verify the amount of system
-calls done.
-
-We also used the -O0 flag in the makefile in order to suggest to the compiler
-not to optimize the code, for a more accurate examination.
