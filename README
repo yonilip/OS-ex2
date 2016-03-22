@@ -9,7 +9,17 @@ Thread.cpp -- implementation of the Thread class methods
 Thread.h -- Thread Class header
 
 REMARKS:
-
+We decided to implement the library's data structures in separate structures
+that act as follows keeping in mind that they all work in FIFO:
+Ready queue is a deque
+Blocked and sleeping threads are vectors that act as queues.
+We also use a min-heap in order to manage the thread id's which is implemented
+using a priority_queue.
+This allows us to manage the threads that share the same state in an easy to
+access manner.
+We have also thought about holding all of the threads in a single dast but we
+decided that it was redundant and complex - thus the modular approach was
+chosen.
 
 ANSWERS:
 
