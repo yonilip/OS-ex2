@@ -1,55 +1,3 @@
-/*
- * Ok here is the rough design of the shit we are doing:
- *
- * Class Thread:
- * 		const unsigned int threadId
- * 		state (Part of the enum that holds states: READY, SLEEPING, BLOCKED, RUNNING)
- * 		stackPointer (of type address_t)
- * 		sigMaskSet
- * 		unsigned int quantumCounter; (increments by 1 each time thread runs)
- * 		sleepTimer (????)
- *
- *
- * 		Optional:
- * 		priority
- *
- *
- * Manager/Scheduler (main thread?):
- *
- * 		curRunningThread (ptr)
- * 		quantum_usecs (comes from the init func and defines how much time each thread runs)
- * 		unsigned int threadsCounter (counts the amount of spawned threads that havent been terminated)
- * 		int sumQuantumCounter ( counter of all the threads that have been in running state, updated at preemption/start of thread run)
- *
- * 		DAST:
- *
- * 		readyQueue (updates at preemption
- * 		tidMinHeap (for extracting the minimal available tid, should be initialized in the init func. insert tid node when terminating a thread)
- * 		SleepingVector (at preemption check if sleeping thread should move to readyQueue)
- * 		BlockedVector
- *
- * 		Optional:
- * 		existingThreads
- *
- *
- *
- *
- * Stuff we arent sure about:
- * 		Signals and their managers (sigaction and shit)
- * 		time measuring
- * 		exceptions and handling them (does each thread handle its own exception or do they move to the manager?)
- *
- *
- *
- * 		Regarding preemption in the RR-Alg:
- * 			blocking suggestion: when deciding to block a thread, we save the
- * 				state of the current thread using sigSetJump and go to the other
- * 				thread and evaluate what situation it is supposed to handle (i.e run? block myself? wake up?)
- * 				then after blocking self sigLongJump to the thread that blocked this thread
- * 				and continue normally. if Blocking self, go to preemption while updating needed
- * 				DAST's.
- */
-
 
 #define SECOND 1000000
 #define MAX_THREAD_NUM 100
@@ -60,7 +8,6 @@
 #include "uthreads.h"
 #include "Thread.h"
 #include <algorithm>
-#include <functional>
 #include <queue>
 #include <iostream>
 
@@ -79,35 +26,13 @@ int totalQuantum;
 struct itimerval timer;
 struct sigaction sigAction;
 
-//TODO static for all non API funcs
-void printAllDAST()
-{
-	deque<Thread*>::iterator it1;
-	vector<Thread*>::iterator it2;
-	vector<Thread*>::iterator it3;
 
-	cout << "Running: " << runningThread->getThreadId() << endl;
-	cout << "READY: ";
-	for(it1 = readyQueue.begin() ; it1 != readyQueue.end() ; ++it1)
-	{
-		cout <<  (*it1)->getThreadId() << " , ";
-	}
-	cout << endl << "SLEEPING: ";
-	for(it2 = sleepingThreads.begin() ; it2 != sleepingThreads.end() ; ++it2)
-	{
-		cout << (*it2)->getThreadId()<< " , ";
-	}
-	cout << endl << "BLOCKED: ";
-	for(it3 = blockedThreads.begin() ; it3 != blockedThreads.end() ; ++it3)
-	{
-		cout <<  (*it3)->getThreadId() << " , ";
-	}
-	cout << endl;
-}
-
+/**
+ * block the signals that are set in the sigset
+ */
 void blockSignals()
 {
-	if(sigprocmask(SIG_SETMASK, &sigSet, NULL)) //TODO replace this in all
+	if(sigprocmask(SIG_SETMASK, &sigSet, NULL))
 		// places where blocking signals
 	{
 		cerr << "system error: cannot call sigprogmask " << endl;
@@ -115,6 +40,10 @@ void blockSignals()
 	}
 }
 
+/**
+ * unblocks the signals that were in sigset and removes pending signals that
+ * were caught during run
+ */
 void unblockSignalsWithIgnore()
 {
 	if(sigemptyset(&sigSet))
@@ -134,6 +63,9 @@ void unblockSignalsWithIgnore()
 	}
 }
 
+/**
+ * unblocks the signal. pending signals may be invoked after this
+ */
 void unblockSignal()
 {
 	if(sigprocmask(SIG_UNBLOCK, &sigSet, NULL))
@@ -143,6 +75,10 @@ void unblockSignal()
 	}
 }
 
+/**
+ * Implementation of the round robin algorithm
+ * Context switch happens here
+ */
 void roundRobinAlg()
 {
 
@@ -190,7 +126,6 @@ void roundRobinAlg()
 		runningThread = readyQueue.front();
 		readyQueue.pop_front();
 	}
-	//printAllDAST();
 
 	unblockSignalsWithIgnore();
 
@@ -199,11 +134,14 @@ void roundRobinAlg()
 		cerr << "system error: cannot set timer" << endl;
 		exit(1);
 	}
-	//totalQuantum++;
+
 	runningThread->incrementQuantumCounter();
 	siglongjmp(runningThread->getEnv(), 1);
 }
 
+/**
+ * The signal handler for SIGVTALRM
+ */
 void timerHandler(int sig)
 {
 	blockSignals();
@@ -229,8 +167,8 @@ int uthread_init(int quantum_usecs)
 
 	// init threadZero
 	threadZero = new Thread(0, NULL);
-	//readyQueue.push_back(threadZero);
 	runningThread = threadZero;
+	//create the tid's and push to heap
 	for (int i = 1; i <= 100; ++i)
 	{
 		tidHeap.push(i);
@@ -260,12 +198,10 @@ int uthread_init(int quantum_usecs)
 
 	timer.it_value.tv_sec = (quantum_usecs/SECOND);
 	timer.it_value.tv_usec = (quantum_usecs % SECOND);
-	//quantum_usecs - (quantum_usecs/SECOND);
 
 	// initial timer for rest of iterations
 	timer.it_interval.tv_sec = (quantum_usecs/SECOND);
 	timer.it_interval.tv_usec = (quantum_usecs % SECOND);
-	//quantum_usecs - (quantum_usecs/SECOND);
 
 	if (sigaction(SIGVTALRM, &sigAction, NULL) < 0)
 	{
@@ -303,11 +239,9 @@ int uthread_spawn(void (*f)(void))
 		int newTid = tidHeap.top();
 		tidHeap.pop();
 		Thread* newThread = new Thread(newTid, f);
-
 		readyQueue.push_back(newThread);
 
 		unblockSignal();
-
 		return newTid;
 	}
 	else
@@ -489,12 +423,7 @@ int uthread_terminate(int tid)
 	}
 
 	tidHeap.push(deletedThreadID);
-
-	//unblock the signal
 	unblockSignal();
-	/*totalQuantum++;
-	roundRobinAlg();*/
-	//TODO us uncommented, this scenario happens if terminate other thread
 	return SUCCESS;
 }
 
@@ -574,9 +503,6 @@ int uthread_block(int tid)
 	}
 }
 
-
-
-
 /*
  * Description: This function resumes a blocked thread with ID tid and moves
  * it to the READY state. Resuming a thread in the RUNNING, READY or SLEEPING
@@ -654,7 +580,7 @@ int uthread_sleep(int num_quantums)
 
 	if(runningThread->getThreadId() != MAIN_THREAD) {
 		runningThread->setTimeTillWakeUp(num_quantums +
-										 uthread_get_total_quantums() );
+										 uthread_get_total_quantums());
 		Thread *tempThread = runningThread;
 		int retVal = sigsetjmp(runningThread->getEnv(), 1);
 		if (retVal == 0)
