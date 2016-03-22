@@ -527,11 +527,15 @@ int uthread_block(int tid)
 
 	if(runningThread->getThreadId() == tid)
 	{
-		//runningThread->incrementQuantumCounter();
 		Thread* tempThreadp = runningThread;
-		blockedThreads.push_back(tempThreadp);
-		runningThread = nullptr;
-		timerHandler(0);
+		int retVal = sigsetjmp(runningThread->getEnv(), 1);
+		if (retVal == 0)
+		{
+			blockedThreads.push_back(tempThreadp);
+			runningThread = nullptr;
+			timerHandler(0);
+		}
+		unblockSignal();
 		return SUCCESS;
 	}
 
@@ -647,14 +651,23 @@ int uthread_sleep(int num_quantums)
 		return FAILED;
 	}
 
-	runningThread->setTimeTillWakeUp(num_quantums +
-									 uthread_get_total_quantums());
-	Thread* tempThread = runningThread;
-	runningThread = nullptr;
-	sleepingThreads.push_back(tempThread);
-
-	timerHandler(0);
-	return SUCCESS;
+	if(runningThread->getThreadId() != MAIN_THREAD) {
+		runningThread->setTimeTillWakeUp(num_quantums +
+										 uthread_get_total_quantums() );
+		Thread *tempThread = runningThread;
+		int retVal = sigsetjmp(runningThread->getEnv(), 1);
+		if (retVal == 0)
+		{
+			runningThread = nullptr;
+			sleepingThreads.push_back(tempThread);
+			timerHandler(0);
+		}
+		unblockSignal();
+		return SUCCESS;
+	}
+	cerr << "thread library error: cannot send main thread to sleep" << endl;
+	unblockSignal();
+	return FAILED;
 }
 
 
