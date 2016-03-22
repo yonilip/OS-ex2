@@ -81,7 +81,6 @@ void unblockSignal()
  */
 void roundRobinAlg()
 {
-
 	blockSignals();
 	if (runningThread != nullptr)
 	{
@@ -92,7 +91,6 @@ void roundRobinAlg()
 			return;
 		}
 	}
-
 
 	int totalQuantum = uthread_get_total_quantums();
 	Thread* threadToWake;
@@ -128,7 +126,6 @@ void roundRobinAlg()
 	}
 
 	unblockSignalsWithIgnore();
-
 	if(setitimer(ITIMER_VIRTUAL, &timer, NULL)) // start counting from now
 	{
 		cerr << "system error: cannot set timer" << endl;
@@ -144,9 +141,12 @@ void roundRobinAlg()
  */
 void timerHandler(int sig)
 {
-	blockSignals();
-	totalQuantum++;
-	roundRobinAlg();
+	if(sig == SIGVTALRM || sig == 0)
+	{
+		blockSignals();
+		totalQuantum++;
+		roundRobinAlg();
+	}
 }
 
 /*
@@ -166,7 +166,16 @@ int uthread_init(int quantum_usecs)
 	}
 
 	// init threadZero
-	threadZero = new Thread(0, NULL);
+	try
+	{
+		threadZero = new Thread(0, NULL);
+	}
+	catch (exception e)
+	{
+		cerr << "thread library error: cannot spawn new thread" << endl;
+		unblockSignal();
+		return FAILED;
+	}
 	runningThread = threadZero;
 	//create the tid's and push to heap
 	for (int i = 1; i <= 100; ++i)
@@ -238,7 +247,17 @@ int uthread_spawn(void (*f)(void))
 	{
 		int newTid = tidHeap.top();
 		tidHeap.pop();
-		Thread* newThread = new Thread(newTid, f);
+		Thread* newThread;
+		try
+		{
+			newThread = new Thread(newTid, f);
+		}
+		catch (exception e)
+		{
+			cerr << "thread library error: cannot aloocate memory for thread" << endl;
+			unblockSignal();
+			return FAILED;
+		}
 		readyQueue.push_back(newThread);
 
 		unblockSignal();
@@ -390,7 +409,16 @@ int uthread_terminate(int tid)
 	if(runningThread->getThreadId() == tid)
 	{
 		deletedThreadID = tid;
-		delete(runningThread);
+		try
+		{
+			delete(runningThread);
+		}
+		catch (exception e)
+		{
+			cerr << "thread library error: cannot delete thread" << endl;
+			unblockSignal();
+			return FAILED;
+		}
 		runningThread = nullptr;
 		tidHeap.push(deletedThreadID);
 		totalQuantum++;
@@ -402,7 +430,16 @@ int uthread_terminate(int tid)
 	if(deletedThreadID == -1 && blockedIt != blockedThreads.end())
 	{
 		deletedThreadID = (*blockedIt)->getThreadId();
-		delete(*blockedIt); // TODO if leak try using temp pointer
+		try
+		{
+			delete(*blockedIt);
+		}
+		catch (exception e )
+		{
+			cerr << "thread library error: cannot delete thread" << endl;
+			unblockSignal();
+			return FAILED;
+		}
 		blockedThreads.erase(blockedIt);
 	}
 
@@ -411,7 +448,16 @@ int uthread_terminate(int tid)
 	if(deletedThreadID == -1 && readyIt != readyQueue.end())
 	{
 		deletedThreadID = (*readyIt)->getThreadId();
-		delete(*readyIt);
+		try
+		{
+			delete(*readyIt);
+		}
+		catch (exception e)
+		{
+			cerr << "thread library error: cannot delete thread" << endl;
+			unblockSignal();
+			return FAILED;
+		}
 		readyQueue.erase(readyIt);
 	}
 
