@@ -2,8 +2,6 @@
 // Created by Danielle on 3/4/2016.
 //
 
-
-
 #ifdef __x86_64__
 /* code for 64 bit Intel arch */
 
@@ -66,7 +64,7 @@ Thread::Thread(int threadId, void (*threadFunction)(void))
 
 Thread::~Thread()
 {
-    //TODO should we free something?
+
 }
 
 int Thread::getThreadId()

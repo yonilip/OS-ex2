@@ -2,7 +2,7 @@
 // Created by Danielle on 3/4/2016.
 //
 
-#ifndef UNTITLED1_THREAD_H //TODO fix this
+#ifndef UNTITLED1_THREAD_H
 #define UNTITLED1_THREAD_H
 
 #include <stdio.h>
@@ -18,8 +18,6 @@ class Thread
 private:
 
     int threadId;
-    //TODO check if needed alloction for thread stack
-
     sigjmp_buf env;
 
     int quantumCounter; // inc every time this thread is in running state
