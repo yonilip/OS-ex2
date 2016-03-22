@@ -207,10 +207,6 @@ void timerHandler(int sig)
 {
 	blockSignals();
 	totalQuantum++;
-	if (runningThread != nullptr)
-	{
-		//runningThread->incrementQuantumCounter();
-	}
 	roundRobinAlg();
 }
 
