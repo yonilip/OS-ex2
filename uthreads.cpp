@@ -5,6 +5,8 @@
 #define SUCCESS 0
 #define MAIN_THREAD 0
 
+#define END_OF_PROCESS 2
+
 #include "uthreads.h"
 #include "Thread.h"
 #include <algorithm>
@@ -19,6 +21,7 @@ priority_queue<int ,vector<int>, greater<int> > tidHeap;
 vector<Thread*> sleepingThreads;
 vector<Thread*> blockedThreads;
 Thread *runningThread;
+Thread *suicideThread;
 Thread* threadZero;
 sigset_t sigSet;
 int totalQuantum;
@@ -85,8 +88,24 @@ void roundRobinAlg()
 	if (runningThread != nullptr)
 	{
 		int retVal = sigsetjmp(runningThread->getEnv(), 1);
+		if (retVal == END_OF_PROCESS)
+		{
+			delete(runningThread);
+			exit(SUCCESS);
+		}
 		if (retVal != 0)
 		{
+			try
+			{
+				delete(suicideThread);
+				suicideThread = nullptr;
+			}
+			catch (exception e)
+			{
+				cerr << "thread library error: cannot delete thread" << endl;
+				unblockSignal();
+				return;
+			}
 			unblockSignal();
 			return;
 		}
@@ -243,7 +262,7 @@ int uthread_spawn(void (*f)(void))
 {
 	blockSignals();
 	if ((readyQueue.size() + sleepingThreads.size() +
-			blockedThreads.size() + 1) < MAX_THREAD_NUM)
+		 blockedThreads.size() + 1) < MAX_THREAD_NUM)
 	{
 		int newTid = tidHeap.top();
 		tidHeap.pop();
@@ -355,18 +374,20 @@ vector<Thread *>::iterator getThreadIterFromSleepingVec(int tid)
 
 void freeAll()
 {
+	Thread* tempThread = nullptr;
+	if (runningThread->getThreadId() != MAIN_THREAD)
+	{
+		//main thread will be in readyQueue
+		auto mainThreadIt = getThreadIterFromReadyQueue(MAIN_THREAD);
+		tempThread = (*mainThreadIt);
+		//erase does not free aloocated memory since vector holds pointers
+		readyQueue.erase(mainThreadIt);
+	}
 	blockedThreads.clear();
 	sleepingThreads.clear();
 	readyQueue.clear();
-	try
-	{
-		delete(runningThread);
-	}
-	catch (exception)
-	{
-		cerr << "cannot delete thread ptr " << endl;
-	}
 
+	//cleanup before termination
 	if(sigemptyset(&sigSet))
 	{
 		cerr << "system error: cannot call sigemptyset" << endl;
@@ -376,7 +397,16 @@ void freeAll()
 	timer.it_interval.tv_sec = 0;
 	timer.it_interval.tv_usec = 0;
 
-	return;
+	//if running isn't main, switch to main thread to safetly delete runningh thread
+	if (tempThread != nullptr)
+	{
+		//jump to main thread
+		siglongjmp(tempThread->getEnv(), END_OF_PROCESS);
+	}
+
+
+	//if running == main then exit
+	exit(SUCCESS);
 }
 
 /*
@@ -402,7 +432,6 @@ int uthread_terminate(int tid)
 	if (tid == MAIN_THREAD)
 	{
 		freeAll();
-		exit(SUCCESS);
 	}
 
 	int deletedThreadID = -1;
@@ -410,16 +439,17 @@ int uthread_terminate(int tid)
 	if(runningThread->getThreadId() == tid)
 	{
 		deletedThreadID = tid;
-		try
-		{
-			delete(runningThread);
-		}
-		catch (exception e)
-		{
-			cerr << "thread library error: cannot delete thread" << endl;
-			unblockSignal();
-			return FAILED;
-		}
+//		try
+//		{
+//			delete(runningThread);
+//		}
+//		catch (exception e)
+//		{
+//			cerr << "thread library error: cannot delete thread" << endl;
+//			unblockSignal();
+//			return FAILED;
+//		}
+		suicideThread = runningThread;
 		runningThread = nullptr;
 		tidHeap.push(deletedThreadID);
 		totalQuantum++;
@@ -749,7 +779,7 @@ int uthread_get_quantums(int tid)
 		return (*it1)->getQuantumCounter();
 	}
 	else if ((it2 = getThreadIterFromSleepingVec(tid)) !=
-			sleepingThreads.end())
+			 sleepingThreads.end())
 	{
 		unblockSignal();
 		return (*it2)->getQuantumCounter();

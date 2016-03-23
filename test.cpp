@@ -35,7 +35,7 @@ void f (void)
             if (i == 3 && j == 0)
             {
                 j++;
-                uthread_sleep(2);
+                uthread_sleep(-2);
             }
             if (i == 6 && j == 1)
             {
@@ -97,7 +97,6 @@ int main(void)
         //cout<<"quantums of thread number " << uthread_get_tid()<<" is " <<a<<std::endl;
         if (i == uthread_get_quantums(uthread_get_tid()))
         {
-            uthread_sleep(-3);
             cout << "m" << "  q:  " << i << endl;
             if (i == 3 && j == 0)
             {
